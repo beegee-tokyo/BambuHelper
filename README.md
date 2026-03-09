@@ -40,8 +40,8 @@ Connects to your printer via MQTT over TLS and displays a real-time dashboard wi
 | SCLK (SCL) | 12 |
 | CS | 10 |
 | DC | 8 |
-| RST | 9 |
-| BL | 7 |
+| RST | 8 |
+| BL | 13 |
 
 Adjust pin assignments in `platformio.ini` build_flags to match your wiring.
 
