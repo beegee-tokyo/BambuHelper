@@ -103,7 +103,7 @@ If direct cloud login from the ESP32 is blocked by Cloudflare, you can get your 
 
 **Using the Python helper script (recommended):**
 ```bash
-pip install requests
+pip install curl_cffi
 python tools/get_token.py
 ```
 The script will prompt for your email, password, and 2FA code, then print the token. Copy and paste it into BambuHelper's web interface.

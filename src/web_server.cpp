@@ -198,7 +198,7 @@ static const char PAGE_HTML[] PROGMEM = R"rawliteral(
       <button type="button" class="btn btn-blue" style="margin-top:10px" onclick="cloudLogin()">Login to Bambu Cloud</button>
     </div>
     <div id="cloud2FA" style="display:none;margin-top:10px">
-      <label for="cl_code">Verification Code (check your email)</label>
+      <label for="cl_code">Verification Code (email or authenticator app)</label>
       <input type="text" id="cl_code" placeholder="123456" maxlength="6">
       <button type="button" class="btn btn-blue" style="margin-top:8px" onclick="cloudVerify()">Verify Code</button>
     </div>
@@ -365,6 +365,18 @@ function toggleConnMode(){
   document.getElementById('cloudFields').style.display=cloud?'block':'none';
   if(v==='cloud') document.getElementById('cloudDesc').innerHTML='For H2C/H2D/H2S/P2S printers. Connects via Bambu Cloud.<br>Token valid ~3 months. Your password is NOT stored.';
   else if(v==='cloud_all') document.getElementById('cloudDesc').innerHTML='Connect any printer via Bambu Cloud (no LAN mode needed).<br>Token valid ~3 months. Your password is NOT stored.';
+  // Always show manual serial fields in cloud mode so user can edit
+  if(cloud){
+    var ms=document.getElementById('manualSerial');
+    if(ms) ms.style.display='block';
+    // Pre-fill manual inputs from hidden fields (saved values)
+    var hs=document.getElementById('cl_serial');
+    var hn=document.getElementById('cl_pname');
+    var is=document.getElementById('cl_manual_serial');
+    var in2=document.getElementById('cl_manual_name');
+    if(is&&hs&&hs.value) is.value=hs.value;
+    if(in2&&hn&&hn.value) in2.value=hn.value;
+  }
 }
 toggleConnMode();
 
@@ -384,7 +396,7 @@ function cloudLogin(){
         document.getElementById('cloudLogoutBtn').style.display='block';
         cloudFetchDevices();
       } else if(d.status==='verify'){
-        document.getElementById('cloudStatus').innerHTML='<span style="color:#58A6FF">Check your email for a verification code</span>';
+        document.getElementById('cloudStatus').innerHTML='<span style="color:#58A6FF">Enter verification code (email or authenticator app)</span>';
         document.getElementById('cloud2FA').style.display='block';
       } else {
         document.getElementById('cloudStatus').innerHTML='<span style="color:#F85149">'+(d.message||'Login failed')+'</span>';
@@ -817,12 +829,17 @@ static void handleSave() {
 
   if (isCloudMode(cfg.mode)) {
     // Cloud mode: serial and name come from hidden fields
+    Serial.printf("SAVE: cl_serial='%s' cl_pname='%s' has_cl_serial=%d has_cl_pname=%d\n",
+                  server.arg("cl_serial").c_str(), server.arg("cl_pname").c_str(),
+                  server.hasArg("cl_serial"), server.hasArg("cl_pname"));
     if (server.hasArg("cl_serial")) strlcpy(cfg.serial, server.arg("cl_serial").c_str(), sizeof(cfg.serial));
     if (server.hasArg("cl_pname"))  strlcpy(cfg.name, server.arg("cl_pname").c_str(), sizeof(cfg.name));
-    // Extract userId from stored token
+    // Extract userId from stored token (JWT decode, then profile API fallback)
     char tokenBuf[1200];
     if (loadCloudToken(tokenBuf, sizeof(tokenBuf))) {
-      cloudExtractUserId(tokenBuf, cfg.cloudUserId, sizeof(cfg.cloudUserId));
+      if (!cloudExtractUserId(tokenBuf, cfg.cloudUserId, sizeof(cfg.cloudUserId))) {
+        cloudFetchUserId(tokenBuf, cfg.cloudUserId, sizeof(cfg.cloudUserId));
+      }
     }
   } else {
     // Local mode: standard fields
@@ -992,30 +1009,24 @@ static void handleCloudToken() {
     return;
   }
 
-  // Validate: must look like a JWT (3 dot-separated segments)
-  int dots = 0;
-  for (unsigned int i = 0; i < token.length(); i++) {
-    if (token[i] == '.') dots++;
-  }
-  if (dots != 2) {
-    server.send(200, "application/json", "{\"status\":\"error\",\"message\":\"Invalid token format (expected JWT)\"}");
-    return;
-  }
-
   // Save the token
   saveCloudToken(token.c_str());
 
-  // Try to extract userId to verify it's valid
+  // Try to extract userId — JWT decode first, then profile API fallback
   char uid[32] = {0};
   if (!cloudExtractUserId(token.c_str(), uid, sizeof(uid))) {
-    server.send(200, "application/json", "{\"status\":\"error\",\"message\":\"Could not extract userId from token\"}");
-    return;
+    // Not a JWT — try fetching userId from profile API
+    if (!cloudFetchUserId(token.c_str(), uid, sizeof(uid))) {
+      server.send(200, "application/json", "{\"status\":\"error\",\"message\":\"Could not extract userId from token. Try entering it manually.\"}");
+      return;
+    }
   }
 
   Serial.printf("CLOUD: Token pasted, userId=%s\n", uid);
 
   JsonDocument doc;
   doc["status"] = "ok";
+  doc["userId"] = uid;
 
   // Try to fetch device list (may fail due to Cloudflare)
   char tokenBuf[1200];
