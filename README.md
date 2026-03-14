@@ -9,7 +9,7 @@ Connects to your printer via MQTT over TLS and displays a real-time dashboard wi
 | Connection Mode | Printers | How it connects |
 |---|---|---|
 | **LAN Direct** | P1P, P1S, X1, X1C, X1E, A1, A1 Mini | Local MQTT via printer IP + LAN access code |
-| **Bambu Cloud (All printers)** | Any Bambu printer | Cloud MQTT via access token — no LAN mode needed |
+| **Bambu Cloud (All printers)** | Any Bambu printer | Cloud MQTT via access token - no LAN mode needed |
 
 > **Tip:** Use "Bambu Cloud (All printers)" if you don't want to enable LAN mode on your printer (e.g. to keep Bambu Handy working), if your ESP32 is on a different network than the printer, or if your printer only supports cloud mode (H2C, H2D, H2S, P2S).
 
@@ -17,10 +17,10 @@ Connects to your printer via MQTT over TLS and displays a real-time dashboard wi
 
 When using Bambu Cloud, BambuHelper connects through Bambu Lab's cloud MQTT service. Here's what you need to know:
 
-- **No credentials are stored** — BambuHelper never asks for your email or password. You extract an access token from your browser and paste it into the web interface.
+- **No credentials are stored** - BambuHelper never asks for your email or password. You extract an access token from your browser and paste it into the web interface.
 - **Only the access token is stored** in the ESP32's flash memory. This token expires after ~3 months, at which point you simply paste a new one.
-- **Read-only access** — BambuHelper only reads printer status. It never sends commands or modifies printer settings.
-- **Same approach as other community projects** — this is the same authentication method used by the [Home Assistant Bambu Lab integration](https://github.com/greghesp/ha-bambulab) (15,000+ users), [OctoPrint-Bambu](https://github.com/jneilliii/OctoPrint-Bambu), and other trusted third-party tools.
+- **Read-only access** - BambuHelper only reads printer status. It never sends commands or modifies printer settings.
+- **Same approach as other community projects** - this is the same authentication method used by the [Home Assistant Bambu Lab integration](https://github.com/greghesp/ha-bambulab) (15,000+ users), [OctoPrint-Bambu](https://github.com/jneilliii/OctoPrint-Bambu), and other trusted third-party tools.
 
 ## Screenshots
 
@@ -82,8 +82,10 @@ Adjust pin assignments in `platformio.ini` build_flags to match your wiring.
 1. **Flash** the firmware (see above)
 2. **Connect** to the `BambuHelper-XXXX` WiFi network (password: `bambu1234`)
 3. **Open** `192.168.4.1` in your browser
-4. **Enter** your home WiFi credentials
-5. **Choose connection mode:**
+4. **Enter** your home WiFi credentials and **Save** - the device restarts and connects to your WiFi
+5. **Note the IP address** shown on the ESP32 display after it connects to WiFi
+6. **Open** that IP address in your browser to access the full web interface
+7. **Configure your printer:**
 
    **LAN Direct** (P1P, P1S, X1, X1C, X1E, A1, A1 Mini):
    - Printer IP address (found in printer Settings > Network)
@@ -95,7 +97,7 @@ Adjust pin assignments in `platformio.ini` build_flags to match your wiring.
    - Paste the token into the web interface
    - Enter your printer's serial number (found in Bambu Handy or on the printer's label)
 
-6. **Save** - the device restarts and connects to your printer
+8. **Save Printer Settings** - the device connects to your printer
 
 ### Getting a Cloud Token
 
@@ -133,7 +135,7 @@ python tools/get_token.py
 ```
 The script will prompt for your email, password, and 2FA code, then print the token. Copy and paste it into BambuHelper's web interface.
 
-> **Note:** The token is valid for approximately 3 months. When it expires, the ESP32 will fail to connect — simply repeat the process above to get a fresh token and paste it in the web interface. Make sure to select the correct **Server Region** (US/EU/CN) to match your Bambu account's region.
+> **Note:** The token is valid for approximately 3 months. When it expires, the ESP32 will fail to connect - simply repeat the process above to get a fresh token and paste it in the web interface. Make sure to select the correct **Server Region** (US/EU/CN) to match your Bambu account's region.
 
 ## Web Interface
 
@@ -153,7 +155,6 @@ The built-in web interface (accessible at the device's IP address) provides the 
 - **Show IP at startup** - display the assigned IP on screen for 3 seconds after WiFi connects (on by default)
 
 ### Printer Settings
-- **Enable Monitoring** - toggle printer connection on/off
 - **Connection Mode** - LAN Direct or Bambu Cloud (All printers)
 - **LAN mode fields:**
   - Printer Name, Printer IP Address, Serial Number, LAN Access Code
@@ -166,6 +167,7 @@ The built-in web interface (accessible at the device's IP address) provides the 
 - **Screen Rotation** - 0°, 90°, 180°, 270°
 - **Display off after print complete** - minutes to show the finish screen before turning off the display (0 = never turn off, default: 3 minutes)
 - **Keep display always on** - override the timeout and never turn off
+- **Show clock after print** - display a digital clock with date instead of turning off the screen (enabled by default)
 
 ### Gauge Colors
 - **Theme presets** - Default, Mono Green, Neon, Warm, Ocean
@@ -194,15 +196,16 @@ The built-in web interface (accessible at the device's IP address) provides the 
 | Idle | Connected, printer not printing |
 | Printing | Active print with full dashboard |
 | Finished | Print complete with animation (auto-off after timeout) |
-| Display Off | After finish timeout or printer powered off |
+| Clock | After finish timeout (if enabled) - shows digital clock with date |
+| Display Off | After finish timeout (if clock disabled) or printer powered off |
 
 ## Display Power Management
 
-- After a print completes, the finish screen is shown for a configurable duration (default: 3 minutes), then the display and backlight turn off to save power.
-- When the printer is powered off or disconnected, the display stays off.
+- After a print completes, the finish screen is shown for a configurable duration (default: 3 minutes), then either a digital clock is displayed or the screen turns off (configurable).
+- When the printer is powered off or disconnected, the display stays in its current state (clock or off).
 - When the printer comes back online or starts a new print, the display automatically wakes up.
 - The "Keep display always on" option overrides the auto-off behavior.
-- The web interface shows the current display state (on/off) in the live status section.
+- The "Show clock after print" option (enabled by default) shows time and date instead of turning off the display.
 
 ## Project Structure
 
@@ -220,6 +223,7 @@ src/
   display_ui.cpp        Screen state machine
   display_gauges.cpp    Arc gauges, progress bar, temp gauges
   display_anim.cpp      Animations (spinner, pulse, dots)
+  clock_mode.cpp        Digital clock display (after print finishes)
   icons.h               16x16 pixel-art icons
 tools/
   get_token.py          Python helper to get Bambu Cloud token on PC
