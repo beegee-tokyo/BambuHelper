@@ -27,6 +27,8 @@ bool isAnyPrinterConfigured();
 uint8_t getActiveConnCount();            // how many connections are live
 const MqttDiag& getMqttDiag(uint8_t slot = 0);
 
+void resetMqttBackoff();                 // reset backoff + force immediate reconnect
+
 // Human-readable error string for PubSubClient rc
 const char* mqttRcToString(int rc);
 

@@ -609,6 +609,14 @@ void handleBambuMqtt() {
   }
 }
 
+void resetMqttBackoff() {
+  for (uint8_t i = 0; i < MAX_ACTIVE_PRINTERS; i++) {
+    conns[i].consecutiveFails = 0;
+    conns[i].lastReconnectAttempt = 0;  // force immediate retry
+  }
+  Serial.println("MQTT: backoff reset, reconnecting immediately");
+}
+
 void disconnectBambuMqtt() {
   for (uint8_t i = 0; i < MAX_ACTIVE_PRINTERS; i++) {
     disconnectBambuMqtt(i);

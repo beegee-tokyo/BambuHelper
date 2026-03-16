@@ -124,9 +124,10 @@ void loop() {
     if (wasButtonPressed()) {
       ScreenState cur = getScreenState();
       if (cur == SCREEN_OFF || cur == SCREEN_CLOCK) {
-        // Wake from sleep
+        // Wake from sleep + reset backoff for immediate reconnect
         setBacklight(brightness);
         finishScreenStart = 0;
+        resetMqttBackoff();
         setScreenState(SCREEN_IDLE);  // state machine will correct on next loop
       } else if (getActiveConnCount() >= 2) {
         // Cycle to next configured printer
