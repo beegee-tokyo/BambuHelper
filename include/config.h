@@ -10,8 +10,14 @@
 //  Display
 // =============================================================================
 #define SCREEN_W        240
+#ifdef _VARIANT_RAK3112_
+#define SCREEN_H 320
+#define BACKLIGHT_PIN WB_IO3
+#define TFT_BACKLIGHT_ON HIGH
+#else
 #define SCREEN_H        240
 #define BACKLIGHT_PIN   TFT_BL  // GPIO 13
+#endif
 #define BACKLIGHT_CH    0
 #define BACKLIGHT_FREQ  5000
 #define BACKLIGHT_RES   8

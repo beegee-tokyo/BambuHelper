@@ -90,6 +90,12 @@ void setup() {
   Serial.begin(115200);
   Serial.printf("\n=== BambuHelper %s Starting ===\n", FW_VERSION);
 
+#ifdef _VARIANT_RAK3112_
+  // Power up the display
+  pinMode(WB_IO2, OUTPUT);
+  digitalWrite(WB_IO2, HIGH);
+#endif
+
   loadSettings();
   initDisplay();
   splashEnd = millis() + 2000;
