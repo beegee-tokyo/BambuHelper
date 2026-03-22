@@ -269,7 +269,7 @@ static const char PAGE_HTML[] PROGMEM = R"rawliteral(
       </div>
       <div class="check-row" id="pong-row">
         <input type="checkbox" id="pong" value="1" %PONG%>
-        <label for="pong">Pong clock (animated Breakout game as clock screen)</label>
+        <label for="pong">Breakout clock (animated game as clock screen)</label>
       </div>
       <div class="check-row">
         <input type="checkbox" id="slbl" value="1" %SLBL%>

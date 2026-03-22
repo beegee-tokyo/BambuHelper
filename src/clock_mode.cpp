@@ -47,8 +47,12 @@ void drawClock() {
   // Date — smaller font below
   const char* days[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
   char dateBuf[20];
-  snprintf(dateBuf, sizeof(dateBuf), "%s  %02d.%02d.%04d",
-           days[now.tm_wday], now.tm_mday, now.tm_mon + 1, now.tm_year + 1900);
+  if (netSettings.use24h)
+    snprintf(dateBuf, sizeof(dateBuf), "%s  %02d.%02d.%04d",
+             days[now.tm_wday], now.tm_mday, now.tm_mon + 1, now.tm_year + 1900);
+  else
+    snprintf(dateBuf, sizeof(dateBuf), "%s  %02d/%02d/%04d",
+             days[now.tm_wday], now.tm_mon + 1, now.tm_mday, now.tm_year + 1900);
   tft.setTextFont(4);
   tft.setTextColor(CLR_TEXT_DIM, bg);
   tft.drawString(dateBuf, 120, 155);

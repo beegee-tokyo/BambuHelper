@@ -203,9 +203,15 @@ void loop() {
       }
     } else if (s.connected && !s.printing &&
                strcmp(s.gcodeState, "FINISH") != 0) {
-      // Stay in CLOCK/OFF — only button press or print start exits these
-      if (current == SCREEN_CLOCK || current == SCREEN_OFF) {
-        // nothing — let clock/off persist while printer is idle
+      // SCREEN_CLOCK is sticky — only button press or print start exits
+      if (current == SCREEN_CLOCK) {
+        // nothing — let clock persist while printer is idle
+      } else if (current == SCREEN_OFF) {
+        // Wake from screen off when printer leaves FINISH state
+        setBacklight(brightness);
+        setScreenState(SCREEN_IDLE);
+        finishScreenStart = 0;
+        idleClockStart = 0;
       } else if (current != SCREEN_IDLE) {
         setScreenState(SCREEN_IDLE);
         finishScreenStart = 0;

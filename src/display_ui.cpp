@@ -612,8 +612,8 @@ static void drawPrinting() {
             snprintf(etaBuf, sizeof(etaBuf), "ETA: %d.%02d %02d:%02d",
                      etaTm.tm_mday, etaTm.tm_mon + 1, etaH, etaTm.tm_min);
           else
-            snprintf(etaBuf, sizeof(etaBuf), "ETA: %d.%02d %d:%02d%s",
-                     etaTm.tm_mday, etaTm.tm_mon + 1, etaH, etaTm.tm_min, ampm);
+            snprintf(etaBuf, sizeof(etaBuf), "ETA: %02d/%02d %d:%02d%s",
+                     etaTm.tm_mon + 1, etaTm.tm_mday, etaH, etaTm.tm_min, ampm);
         } else {
           if (netSettings.use24h)
             snprintf(etaBuf, sizeof(etaBuf), "ETA: %02d:%02d", etaH, etaTm.tm_min);
