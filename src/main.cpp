@@ -213,6 +213,7 @@ void loop() {
         finishScreenStart = 0;
         idleClockStart = 0;
       } else if (current != SCREEN_IDLE) {
+        if (current == SCREEN_CONNECTING_MQTT) buzzerPlay(BUZZ_CONNECTED);
         setScreenState(SCREEN_IDLE);
         finishScreenStart = 0;
         idleClockStart = 0;
