@@ -267,9 +267,13 @@ static const char PAGE_HTML[] PROGMEM = R"rawliteral(
         <input type="checkbox" id="abar" value="1" %ABAR%>
         <label for="abar">Animated progress bar (shimmer effect)</label>
       </div>
-      <div class="check-row">
+      <div class="check-row" id="pong-row">
         <input type="checkbox" id="pong" value="1" %PONG%>
         <label for="pong">Pong clock (animated Breakout game as clock screen)</label>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="slbl" value="1" %SLBL%>
+        <label for="slbl">Smaller gauge labels</label>
       </div>
       <div style="font-size:11px;color:#8B949E;margin-top:4px">
         Note: Without a physical button, display will show clock instead of turning off (no way to wake manually).
@@ -345,10 +349,10 @@ static const char PAGE_HTML[] PROGMEM = R"rawliteral(
   </div>
 </div>
 
-<!-- ===== Section 3: Multi-Printer ===== -->
+<!-- ===== Section 3: Hardware & Multi-Printer ===== -->
 <div class="section" id="s-rotate">
   <div class="section-header" onclick="toggleSection('rotate')">
-    <h2>Multi-Printer</h2>
+    <h2>Hardware &amp; Multi-Printer</h2>
     <span class="arrow" id="arr-rotate">&#9654;</span>
   </div>
   <div class="section-content" id="sec-rotate">
@@ -394,6 +398,8 @@ static const char PAGE_HTML[] PROGMEM = R"rawliteral(
             <input type="number" id="buzqe" min="0" max="23" value="%BUZ_QE%" style="width:60px" placeholder="7">
             <span style="font-size:11px;color:#8B949E">(0-0 = off)</span>
           </div>
+          <button type="button" id="buzTestBtn" class="btn btn-blue" style="margin-top:12px;width:auto;padding:8px 16px"
+                  onclick="testBuzzer()">Test: Print Finished</button>
         </div>
       </div>
 
@@ -606,7 +612,7 @@ function cloudLogout(){
   });
 }
 
-// --- Multi-Printer rotation & button ---
+// --- Hardware & Multi-Printer ---
 function toggleBtnPin(){
   document.getElementById('btnPinRow').style.display=
     document.getElementById('btntype').value==='0'?'none':'block';
@@ -618,6 +624,22 @@ function toggleBuzPin(){
     document.getElementById('buzzen').value==='0'?'none':'block';
 }
 toggleBuzPin();
+
+var buzTestSounds=[
+  {id:0, name:'Print Finished'},
+  {id:1, name:'Error'},
+  {id:2, name:'Connected'}
+];
+var buzTestIdx=0;
+function testBuzzer(){
+  var snd=buzTestSounds[buzTestIdx];
+  fetch('/buzzer/test',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'sound='+snd.id})
+    .then(function(r){return r.json();})
+    .then(function(d){if(d.status==='ok') showToast('Playing: '+snd.name);})
+    .catch(function(){showToast('Error');});
+  buzTestIdx=(buzTestIdx+1)%buzTestSounds.length;
+  document.getElementById('buzTestBtn').textContent='Test: '+buzTestSounds[buzTestIdx].name;
+}
 
 function saveRotation(){
   var p=new URLSearchParams();
@@ -681,6 +703,7 @@ function applyDisplay(){
   if(document.getElementById('clock').checked) p.append('clock','1');
   if(document.getElementById('abar').checked) p.append('abar','1');
   if(document.getElementById('pong').checked) p.append('pong','1');
+  if(document.getElementById('slbl').checked) p.append('slbl','1');
   p.append('tz',document.getElementById('tz').value);
   if(document.getElementById('use24h').checked) p.append('use24h','1');
   p.append('clr_bg',document.getElementById('clr_bg').value);
@@ -782,6 +805,19 @@ function importSettings(){
       stat.innerHTML='<span style="color:#F85149">Upload failed</span>';
     });
 }
+
+// Pong clock checkbox depends on clock-after-print being enabled
+(function(){
+  var clk=document.getElementById('clock');
+  var pong=document.getElementById('pong');
+  var row=document.getElementById('pong-row');
+  function upd(){
+    pong.disabled=!clk.checked;
+    row.style.opacity=clk.checked?'1':'0.4';
+  }
+  clk.onchange=upd;
+  upd();
+})();
 </script>
 </body>
 </html>
@@ -876,6 +912,7 @@ static String processTemplate(const String& html) {
   page.replace("%CLOCK%", dpSettings.showClockAfterFinish ? "checked" : "");
   page.replace("%ABAR%", dispSettings.animatedBar ? "checked" : "");
   page.replace("%PONG%", dispSettings.pongClock ? "checked" : "");
+  page.replace("%SLBL%", dispSettings.smallLabels ? "checked" : "");
 
   // Global colors
   char buf[8];
@@ -969,6 +1006,7 @@ static void readDisplayFromForm() {
   dpSettings.showClockAfterFinish = server.hasArg("clock");
   dispSettings.animatedBar = server.hasArg("abar");
   dispSettings.pongClock = server.hasArg("pong");
+  dispSettings.smallLabels = server.hasArg("slbl");
 
   // Clock settings (timezone, 24h)
   if (server.hasArg("tz")) {
@@ -1200,6 +1238,14 @@ static void handlePrinterConfig() {
   server.send(200, "application/json", json);
 }
 
+// Test buzzer from web UI
+static void handleBuzzerTest() {
+  uint8_t snd = 0;
+  if (server.hasArg("sound")) snd = server.arg("sound").toInt();
+  if (snd <= 2) buzzerPlay((BuzzerEvent)snd);
+  server.send(200, "application/json", "{\"status\":\"ok\"}");
+}
+
 // Save rotation settings (multi-printer)
 static void handleSaveRotation() {
   if (server.hasArg("rotmode")) {
@@ -1286,6 +1332,7 @@ static void handleSettingsExport() {
   rgb565ToHtml(dispSettings.trackColor, buf); disp["trackColor"] = String(buf);
   disp["animatedBar"] = dispSettings.animatedBar;
   disp["pongClock"] = dispSettings.pongClock;
+  disp["smallLabels"] = dispSettings.smallLabels;
 
   JsonObject gauges = disp["gauges"].to<JsonObject>();
   JsonObject gPrg = gauges["progress"].to<JsonObject>(); gaugeColorsToJson(gPrg, dispSettings.progress);
@@ -1405,6 +1452,7 @@ static void handleSettingsImportFinish() {
     if (disp["trackColor"].is<const char*>()) dispSettings.trackColor = htmlToRgb565(disp["trackColor"]);
     if (disp["animatedBar"].is<bool>())       dispSettings.animatedBar = disp["animatedBar"].as<bool>();
     if (disp["pongClock"].is<bool>())         dispSettings.pongClock = disp["pongClock"].as<bool>();
+    if (disp["smallLabels"].is<bool>())      dispSettings.smallLabels = disp["smallLabels"].as<bool>();
 
     JsonObject gauges = disp["gauges"];
     if (gauges) {
@@ -1497,6 +1545,7 @@ void initWebServer() {
   server.on("/save/wifi", HTTP_POST, handleSaveWifi);
   server.on("/save/printer", HTTP_POST, handleSavePrinter);
   server.on("/save/rotation", HTTP_POST, handleSaveRotation);
+  server.on("/buzzer/test", HTTP_POST, handleBuzzerTest);
   server.on("/printer/config", HTTP_GET, handlePrinterConfig);
   server.on("/apply", HTTP_POST, handleApply);
   server.on("/status", HTTP_GET, handleStatus);

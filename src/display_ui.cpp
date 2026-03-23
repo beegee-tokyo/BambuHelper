@@ -27,6 +27,50 @@ static BambuState prevState;
 static unsigned long connectScreenStart = 0;
 
 // ---------------------------------------------------------------------------
+//  Smooth gauge interpolation — values lerp toward MQTT actuals each frame
+// ---------------------------------------------------------------------------
+static float smoothNozzleTemp = 0;
+static float smoothBedTemp    = 0;
+static float smoothPartFan    = 0;
+static float smoothAuxFan     = 0;
+static float smoothChamberFan = 0;
+static bool  smoothInited     = false;
+
+static const float SMOOTH_ALPHA = 0.25f;  // per frame at 4Hz — ~1s to settle
+static const float SNAP_THRESH  = 0.5f;   // snap when within 0.5 of target
+
+static void smoothLerp(float& cur, float target) {
+  float diff = target - cur;
+  if (fabsf(diff) < SNAP_THRESH) cur = target;
+  else cur += diff * SMOOTH_ALPHA;
+}
+
+// Returns true if any gauge is still animating
+static bool tickGaugeSmooth(const BambuState& s, bool snap) {
+  if (snap || !smoothInited) {
+    smoothNozzleTemp = s.nozzleTemp;
+    smoothBedTemp    = s.bedTemp;
+    smoothPartFan    = s.coolingFanPct;
+    smoothAuxFan     = s.auxFanPct;
+    smoothChamberFan = s.chamberFanPct;
+    smoothInited = true;
+    return false;
+  }
+  smoothLerp(smoothNozzleTemp, s.nozzleTemp);
+  smoothLerp(smoothBedTemp,    s.bedTemp);
+  smoothLerp(smoothPartFan,    (float)s.coolingFanPct);
+  smoothLerp(smoothAuxFan,     (float)s.auxFanPct);
+  smoothLerp(smoothChamberFan, (float)s.chamberFanPct);
+
+  const float ANIM_EPS = 0.01f;
+  return (fabsf(smoothNozzleTemp - s.nozzleTemp) > ANIM_EPS) ||
+         (fabsf(smoothBedTemp    - s.bedTemp)    > ANIM_EPS) ||
+         (fabsf(smoothPartFan    - (float)s.coolingFanPct) > ANIM_EPS) ||
+         (fabsf(smoothAuxFan     - (float)s.auxFanPct)     > ANIM_EPS) ||
+         (fabsf(smoothChamberFan - (float)s.chamberFanPct) > ANIM_EPS);
+}
+
+// ---------------------------------------------------------------------------
 //  Backlight
 // ---------------------------------------------------------------------------
 void setBacklight(uint8_t level) {
@@ -78,6 +122,8 @@ void applyDisplaySettings() {
 void triggerDisplayTransition() {
   // Clear previous state so everything redraws for the new printer
   memset(&prevState, 0, sizeof(prevState));
+  smoothInited = false;  // snap gauges to new printer's values
+  resetGaugeTextCache();
   tft.fillScreen(dispSettings.bgColor);
   forceRedraw = true;
 }
@@ -166,14 +212,19 @@ static void drawAPMode() {
 static void drawConnectingWiFi() {
   tft.setTextDatum(MC_DATUM);
 
-  drawSpinner(tft, SCREEN_W / 2, SCREEN_H / 2 - 30, 35, CLR_BLUE);
-
+  // Title
   tft.setTextFont(2);
   tft.setTextColor(CLR_TEXT, CLR_BG);
-  tft.drawString("Connecting to WiFi", SCREEN_W / 2, SCREEN_H / 2 + 20);
+  tft.drawString("Connecting to WiFi", SCREEN_W / 2, SCREEN_H / 2 - 20);
 
   int16_t tw = tft.textWidth("Connecting to WiFi");
-  drawAnimDots(tft, SCREEN_W / 2 + tw / 2, SCREEN_H / 2 + 14, CLR_TEXT);
+  drawAnimDots(tft, SCREEN_W / 2 + tw / 2, SCREEN_H / 2 - 26, CLR_TEXT);
+
+  // Slide bar
+  const int16_t barW = 180;
+  const int16_t barH = 8;
+  drawSlideBar(tft, (SCREEN_W - barW) / 2, SCREEN_H / 2 + 4,
+               barW, barH, CLR_BLUE, CLR_TRACK);
 }
 
 // ---------------------------------------------------------------------------
@@ -209,18 +260,22 @@ static void drawWiFiConnected() {
 static void drawConnectingMQTT() {
   tft.setTextDatum(MC_DATUM);
 
-  drawSpinner(tft, SCREEN_W / 2, SCREEN_H / 2 - 50, 30, CLR_ORANGE);
-
+  // Title
   tft.setTextFont(2);
   tft.setTextColor(CLR_TEXT, CLR_BG);
-  tft.drawString("Connecting to Printer", SCREEN_W / 2, SCREEN_H / 2);
+  tft.drawString("Connecting to Printer", SCREEN_W / 2, SCREEN_H / 2 - 40);
 
   int16_t tw = tft.textWidth("Connecting to Printer");
-  drawAnimDots(tft, SCREEN_W / 2 + tw / 2, SCREEN_H / 2 - 6, CLR_TEXT);
+  drawAnimDots(tft, SCREEN_W / 2 + tw / 2, SCREEN_H / 2 - 46, CLR_TEXT);
+  tft.setTextDatum(MC_DATUM);
 
-  tft.setTextDatum(MC_DATUM);  // restore after drawAnimDots
+  // Slide bar
+  const int16_t barW = 180;
+  const int16_t barH = 8;
+  drawSlideBar(tft, (SCREEN_W - barW) / 2, SCREEN_H / 2 - 14,
+               barW, barH, CLR_ORANGE, CLR_TRACK);
 
-  // Show connection mode + printer info
+  // Connection mode + printer info
   PrinterSlot& p = displayedPrinter();
   tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
   tft.setTextFont(2);
@@ -234,50 +289,33 @@ static void drawConnectingMQTT() {
     snprintf(infoBuf, sizeof(infoBuf), "[%s] %s",  modeStr,
              strlen(p.config.ip) > 0 ? p.config.ip : "no IP!");
   }
-  tft.drawString(infoBuf, SCREEN_W / 2, SCREEN_H / 2 + 20);
+  tft.drawString(infoBuf, SCREEN_W / 2, SCREEN_H / 2 + 10);
 
   // Elapsed time
   if (connectScreenStart > 0) {
     unsigned long elapsed = (millis() - connectScreenStart) / 1000;
     char elBuf[16];
     snprintf(elBuf, sizeof(elBuf), "%lus", elapsed);
-    tft.fillRect(SCREEN_W / 2 - 30, SCREEN_H / 2 + 32, 60, 16, CLR_BG);
-    tft.drawString(elBuf, SCREEN_W / 2, SCREEN_H / 2 + 40);
+    tft.fillRect(SCREEN_W / 2 - 30, SCREEN_H / 2 + 22, 60, 16, CLR_BG);
+    tft.drawString(elBuf, SCREEN_W / 2, SCREEN_H / 2 + 30);
   }
 
-  // Diagnostics info
+  // Diagnostics (only after first attempt)
   const MqttDiag& d = getMqttDiag(rotState.displayIndex);
   if (d.attempts > 0) {
-    tft.fillRect(0, SCREEN_H / 2 + 48, SCREEN_W, 72, CLR_BG);
     tft.setTextFont(1);
     tft.setTextDatum(MC_DATUM);
 
-    // Attempt count
     char buf[40];
     snprintf(buf, sizeof(buf), "Attempt: %u", d.attempts);
     tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
-    tft.drawString(buf, SCREEN_W / 2, SCREEN_H / 2 + 56);
+    tft.drawString(buf, SCREEN_W / 2, SCREEN_H / 2 + 50);
 
-    // TCP status
-    if (d.tcpOk) {
-      tft.setTextColor(CLR_GREEN, CLR_BG);
-      tft.drawString("TCP: OK", SCREEN_W / 2, SCREEN_H / 2 + 68);
-    } else if (d.lastRc != 0) {
-      tft.setTextColor(CLR_RED, CLR_BG);
-      tft.drawString("TCP: fail", SCREEN_W / 2, SCREEN_H / 2 + 68);
-    }
-
-    // Last error
     if (d.lastRc != 0) {
       snprintf(buf, sizeof(buf), "Err: %s", mqttRcToString(d.lastRc));
       tft.setTextColor(CLR_RED, CLR_BG);
-      tft.drawString(buf, SCREEN_W / 2, SCREEN_H / 2 + 80);
+      tft.drawString(buf, SCREEN_W / 2, SCREEN_H / 2 + 62);
     }
-
-    // Heap
-    snprintf(buf, sizeof(buf), "Heap: %uK", d.freeHeap / 1024);
-    tft.setTextColor(CLR_TEXT_DARK, CLR_BG);
-    tft.drawString(buf, SCREEN_W / 2, SCREEN_H / 2 + 92);
   }
 }
 
@@ -329,8 +367,9 @@ static void drawIdle() {
   PrinterSlot& p = displayedPrinter();
   BambuState& s = p.state;
 
+  bool animating = tickGaugeSmooth(s, forceRedraw);
   bool stateChanged = forceRedraw || (strcmp(s.gcodeState, prevState.gcodeState) != 0);
-  bool tempChanged = forceRedraw ||
+  bool tempChanged = forceRedraw || animating ||
                      (s.nozzleTemp != prevState.nozzleTemp) ||
                      (s.nozzleTarget != prevState.nozzleTarget) ||
                      (s.bedTemp != prevState.bedTemp) ||
@@ -377,25 +416,47 @@ static void drawIdle() {
     drawTempGauge(tft, SCREEN_W / 2 - 55, 140, 30,
                   s.nozzleTemp, s.nozzleTarget, 300.0f,
                   dispSettings.nozzle.arc, nozzleLabel(s), nullptr, forceRedraw,
-                  &dispSettings.nozzle);
+                  &dispSettings.nozzle, smoothNozzleTemp);
 
     // Bed temp gauge
     drawTempGauge(tft, SCREEN_W / 2 + 55, 140, 30,
                   s.bedTemp, s.bedTarget, 120.0f,
                   dispSettings.bed.arc, "Bed", nullptr, forceRedraw,
-                  &dispSettings.bed);
+                  &dispSettings.bed, smoothBedTemp);
   }
 
-  // WiFi signal at bottom
-  if (wifiChanged) {
-    tft.fillRect(0, SCREEN_H - 14, SCREEN_W, 14, CLR_BG);
-    tft.setTextFont(1);
-    tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
+  // Bottom: filament indicator or WiFi signal
+  bool bottomChanged = wifiChanged || (s.ams.activeTray != prevState.ams.activeTray);
+  if (bottomChanged) {
+    tft.fillRect(0, SCREEN_H - 18, SCREEN_W, 18, CLR_BG);
+    tft.setTextFont(2);
     tft.setTextDatum(BC_DATUM);
-    char wifiBuf[24];
-    snprintf(wifiBuf, sizeof(wifiBuf), "WiFi: %d dBm", s.wifiSignal);
-    tft.drawString(wifiBuf, SCREEN_W / 2, SCREEN_H - 5);
+
+    if (s.ams.present && s.ams.activeTray < AMS_MAX_TRAYS && s.ams.trays[s.ams.activeTray].present) {
+      AmsTray& t = s.ams.trays[s.ams.activeTray];
+      int cx = SCREEN_W / 2 - tft.textWidth(t.type) / 2 - 8;
+      tft.drawCircle(cx, SCREEN_H - 8, 5, CLR_TEXT_DARK);
+      tft.fillCircle(cx, SCREEN_H - 8, 4, t.colorRgb565);
+      tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
+      tft.drawString(t.type, SCREEN_W / 2 + 4, SCREEN_H - 2);
+    } else {
+      tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
+      char wifiBuf[24];
+      snprintf(wifiBuf, sizeof(wifiBuf), "WiFi: %d dBm", s.wifiSignal);
+      tft.drawString(wifiBuf, SCREEN_W / 2, SCREEN_H - 2);
+    }
   }
+}
+
+// ---------------------------------------------------------------------------
+//  Helper: draw WiFi signal indicator in bottom-left corner
+// ---------------------------------------------------------------------------
+static void drawWifiSignalIndicator(const BambuState& s) {
+  tft.setTextDatum(ML_DATUM);
+  tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
+  char wifiBuf[16];
+  snprintf(wifiBuf, sizeof(wifiBuf), "%ddBm", s.wifiSignal);
+  tft.drawString(wifiBuf, 4, 232);
 }
 
 // ---------------------------------------------------------------------------
@@ -406,15 +467,16 @@ static void drawPrinting() {
   PrinterSlot& p = displayedPrinter();
   BambuState& s = p.state;
 
+  bool animating = tickGaugeSmooth(s, forceRedraw);
   bool progChanged = forceRedraw || (s.progress != prevState.progress);
-  bool tempChanged = forceRedraw ||
+  bool tempChanged = forceRedraw || animating ||
                      (s.nozzleTemp != prevState.nozzleTemp) ||
                      (s.nozzleTarget != prevState.nozzleTarget) ||
                      (s.bedTemp != prevState.bedTemp) ||
                      (s.bedTarget != prevState.bedTarget);
   bool etaChanged = forceRedraw ||
                      (s.remainingMinutes != prevState.remainingMinutes);
-  bool fansChanged = forceRedraw ||
+  bool fansChanged = forceRedraw || animating ||
                      (s.coolingFanPct != prevState.coolingFanPct) ||
                      (s.auxFanPct != prevState.auxFanPct) ||
                      (s.chamberFanPct != prevState.chamberFanPct);
@@ -482,12 +544,12 @@ static void drawPrinting() {
     drawTempGauge(tft, col2, row1Y, gR,
                   s.nozzleTemp, s.nozzleTarget, 300.0f,
                   dispSettings.nozzle.arc, nozzleLabel(s), nullptr, forceRedraw,
-                  &dispSettings.nozzle);
+                  &dispSettings.nozzle, smoothNozzleTemp);
 
     drawTempGauge(tft, col3, row1Y, gR,
                   s.bedTemp, s.bedTarget, 120.0f,
                   dispSettings.bed.arc, "Bed", nullptr, forceRedraw,
-                  &dispSettings.bed);
+                  &dispSettings.bed, smoothBedTemp);
   }
 
   // === Row 2: Part Fan | Aux Fan | Chamber Fan (y=106-176) ===
@@ -495,15 +557,15 @@ static void drawPrinting() {
   if (fansChanged) {
     drawFanGauge(tft, col1, row2Y, gR,
                  s.coolingFanPct, dispSettings.partFan.arc, "Part", forceRedraw,
-                 &dispSettings.partFan);
+                 &dispSettings.partFan, smoothPartFan);
 
     drawFanGauge(tft, col2, row2Y, gR,
                  s.auxFanPct, dispSettings.auxFan.arc, "Aux", forceRedraw,
-                 &dispSettings.auxFan);
+                 &dispSettings.auxFan, smoothAuxFan);
 
     drawFanGauge(tft, col3, row2Y, gR,
                  s.chamberFanPct, dispSettings.chamberFan.arc, "Chamber", forceRedraw,
-                 &dispSettings.chamberFan);
+                 &dispSettings.chamberFan, smoothChamberFan);
   }
 
   // === Info line — ETA finish time or PAUSE/ERROR alert (below row 2 labels) ===
@@ -578,34 +640,53 @@ static void drawPrinting() {
     }
   }
 
-  // === Bottom status bar — WiFi | Layer | Speed (y=218-236) ===
+  // === Bottom status bar — Filament/WiFi | Layer | Speed (y=222-240) ===
+  // WiFi signal only matters when AMS indicator is not shown
+  bool showingWifi = !(s.ams.present && s.ams.activeTray < AMS_MAX_TRAYS && s.ams.trays[s.ams.activeTray].present)
+                  && !(s.ams.vtPresent && s.ams.activeTray == 254);
   bool bottomChanged = forceRedraw ||
-                       (s.wifiSignal != prevState.wifiSignal) ||
                        (s.speedLevel != prevState.speedLevel) ||
                        (s.layerNum != prevState.layerNum) ||
-                       (s.totalLayers != prevState.totalLayers);
+                       (s.totalLayers != prevState.totalLayers) ||
+                       (s.ams.activeTray != prevState.ams.activeTray) ||
+                       (showingWifi && s.wifiSignal != prevState.wifiSignal);
   if (bottomChanged) {
-    tft.fillRect(0, 218, SCREEN_W, 22, CLR_BG);
-    tft.setTextFont(1);
+    tft.fillRect(0, 222, SCREEN_W, 18, CLR_BG);
+    tft.setTextFont(2);
 
-    // WiFi signal (left)
-    tft.setTextDatum(ML_DATUM);
-    tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
-    char wifiBuf[20];
-    snprintf(wifiBuf, sizeof(wifiBuf), "WiFi %ddBm", s.wifiSignal);
-    tft.drawString(wifiBuf, 4, 230);
+    // Left: filament indicator (if AMS active) or WiFi signal
+    if (s.ams.present && s.ams.activeTray < AMS_MAX_TRAYS) {
+      AmsTray& t = s.ams.trays[s.ams.activeTray];
+      if (t.present) {
+        tft.drawCircle(10, 232, 5, CLR_TEXT_DARK);
+        tft.fillCircle(10, 232, 4, t.colorRgb565);
+        tft.setTextDatum(ML_DATUM);
+        tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
+        tft.drawString(t.type, 19, 232);
+      } else {
+        drawWifiSignalIndicator(s);
+      }
+    } else if (s.ams.vtPresent && s.ams.activeTray == 254) {
+      tft.drawCircle(10, 232, 5, CLR_TEXT_DARK);
+      tft.fillCircle(10, 232, 4, s.ams.vtColorRgb565);
+      tft.setTextDatum(ML_DATUM);
+      tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
+      tft.drawString(s.ams.vtType, 19, 232);
+    } else {
+      drawWifiSignalIndicator(s);
+    }
 
     // Layer count (center)
     tft.setTextDatum(MC_DATUM);
     tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
     char layerBuf[20];
     snprintf(layerBuf, sizeof(layerBuf), "L%d/%d", s.layerNum, s.totalLayers);
-    tft.drawString(layerBuf, SCREEN_W / 2, 230);
+    tft.drawString(layerBuf, SCREEN_W / 2, 232);
 
     // Speed mode (right)
     tft.setTextDatum(MR_DATUM);
     tft.setTextColor(speedLevelColor(s.speedLevel), CLR_BG);
-    tft.drawString(speedLevelName(s.speedLevel), SCREEN_W - 4, 230);
+    tft.drawString(speedLevelName(s.speedLevel), SCREEN_W - 4, 232);
   }
 }
 
@@ -616,7 +697,8 @@ static void drawFinished() {
   PrinterSlot& p = displayedPrinter();
   BambuState& s = p.state;
 
-  bool tempChanged = forceRedraw ||
+  bool animating = tickGaugeSmooth(s, forceRedraw);
+  bool tempChanged = forceRedraw || animating ||
                      (s.nozzleTemp != prevState.nozzleTemp) ||
                      (s.nozzleTarget != prevState.nozzleTarget) ||
                      (s.bedTemp != prevState.bedTemp) ||
@@ -666,12 +748,12 @@ static void drawFinished() {
     drawTempGauge(tft, gaugeLeft, gaugeY, gR,
                   s.nozzleTemp, s.nozzleTarget, 300.0f,
                   dispSettings.nozzle.arc, nozzleLabel(s), nullptr, forceRedraw,
-                  &dispSettings.nozzle);
+                  &dispSettings.nozzle, smoothNozzleTemp);
 
     drawTempGauge(tft, gaugeRight, gaugeY, gR,
                   s.bedTemp, s.bedTarget, 120.0f,
                   dispSettings.bed.arc, "Bed", nullptr, forceRedraw,
-                  &dispSettings.bed);
+                  &dispSettings.bed, smoothBedTemp);
   }
 
   // === "Print Complete!" status ===
@@ -738,8 +820,9 @@ void updateDisplay() {
     if (currentScreen == SCREEN_CONNECTING_MQTT) {
       connectScreenStart = millis();
     }
-    if (currentScreen == SCREEN_CLOCK && dispSettings.pongClock) {
-      resetPongClock();
+    if (currentScreen == SCREEN_CLOCK) {
+      if (dispSettings.pongClock) resetPongClock();
+      else resetClock();
     }
     prevScreen = currentScreen;
   }
