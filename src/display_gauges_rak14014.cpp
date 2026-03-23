@@ -1,7 +1,11 @@
-#ifndef _VARIANT_RAK3112_
+#ifdef _VARIANT_RAK3112_
 #include "display_gauges.h"
 #include "config.h"
 #include "settings.h"
+
+// Screen width and height changes depending on rotation
+extern int32_t use_width;
+extern int32_t use_height;
 
 // ---------------------------------------------------------------------------
 //  H2-style LED progress bar
@@ -10,9 +14,9 @@ void drawLedProgressBar(TFT_eSPI& tft, int16_t y, uint8_t progress) {
   uint16_t bg = dispSettings.bgColor;
   uint16_t track = dispSettings.trackColor;
 
-  const int16_t barW = 236;
+  const int16_t barW = use_width - 4;
   const int16_t barH = 5;
-  const int16_t barX = (SCREEN_W - barW) / 2;
+  const int16_t barX = (use_width - barW) / 2;
 
   tft.fillRect(barX, y, barW, barH, bg);
 
@@ -67,7 +71,7 @@ void tickProgressShimmer(TFT_eSPI& tft, int16_t y, uint8_t progress, bool printi
 
   const int16_t barW = 236;
   const int16_t barH = 5;
-  const int16_t barX = (SCREEN_W - barW) / 2;
+  const int16_t barX = (use_width - barW) / 2;
   int16_t fillW = (progress * barW) / 100;
   if (fillW < SHIMMER_W + 4) return;  // too small for shimmer
 
