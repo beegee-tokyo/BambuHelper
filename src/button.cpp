@@ -33,10 +33,8 @@ void initButton()
   buttonType = BTN_PUSH;
   return;
 #else
-  if (buttonType == BTN_DISABLED || buttonPin == 0)
-    return;
-  if (buttonType == BTN_PUSH)
-  {
+  if (buttonType == BTN_DISABLED || buttonPin == 0)return;
+  if (buttonType == BTN_PUSH) {
     pinMode(buttonPin, INPUT_PULLUP);
   } else {  // BTN_TOUCH (TTP223)
     pinMode(buttonPin, INPUT);

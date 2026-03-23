@@ -18,6 +18,7 @@ struct DisplaySettings {
   uint16_t trackColor;     // inactive arc track color
   bool     animatedBar;    // shimmer effect on progress bar
   bool     pongClock;      // Pong/Breakout animated clock
+  bool     smallLabels;    // use smaller gauge labels (Font 1 instead of Font 2)
   GaugeColors progress;
   GaugeColors nozzle;
   GaugeColors bed;
@@ -85,6 +86,9 @@ void saveCloudEmail(const char* email);
 // RGB565 <-> HTML hex conversion
 uint16_t htmlToRgb565(const char* hex);
 void rgb565ToHtml(uint16_t color, char* buf);  // buf must be >= 8 chars
+
+// Bambu RRGGBBAA hex to RGB565 (e.g. "9D432CFF" -> RGB565)
+uint16_t bambuColorToRgb565(const char* rrggbbaa);
 
 // Load default display settings
 void defaultDisplaySettings(DisplaySettings& ds);
