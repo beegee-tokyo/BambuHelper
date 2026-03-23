@@ -14,7 +14,12 @@ DisplaySettings dispSettings;
 NetworkSettings netSettings;
 DisplayPowerSettings dpSettings;
 char cloudEmail[64] = {0};
+
+#ifdef _VARIANT_RAK3112_
+ButtonType buttonType = BTN_TOUCH;
+#else
 ButtonType buttonType = BTN_DISABLED;
+#endif
 uint8_t buttonPin = BUTTON_DEFAULT_PIN;
 BuzzerSettings buzzerSettings = { false, BUZZER_DEFAULT_PIN, 0, 0 };
 
