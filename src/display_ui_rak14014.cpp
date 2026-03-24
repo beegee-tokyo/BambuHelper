@@ -444,10 +444,10 @@ static void drawIdle() {
                   &dispSettings.nozzle, smoothNozzleTemp);  // 140
 
     // Bed temp gauge
-	drawTempGauge(tft, use_width / 2 + 55, use_height / 2 + 20, 30,
-				  s.bedTemp, s.bedTarget, 120.0f,
-				  dispSettings.bed.arc, "Bed", nullptr, forceRedraw,
-				  &dispSettings.bed, smoothBedTemp); // 140
+    drawTempGauge(tft, use_width / 2 + 55, use_height / 2 + 20, 30,
+                  s.bedTemp, s.bedTarget, 120.0f,
+                  dispSettings.bed.arc, "Bed", nullptr, forceRedraw,
+                  &dispSettings.bed, smoothBedTemp); // 140
   }
 
   // Bottom: filament indicator or WiFi signal
@@ -514,7 +514,7 @@ static void drawPrinting() {
   const int16_t col1 = (use_width / 2) - (use_width / 3);     // 42 left column center X
   const int16_t col2 = use_width / 2;    // 120 middle column center X
   const int16_t col3 = (use_width / 2) + (use_width / 3); // 198 right column center X
-  const int16_t row1Y = use_height / 4;			// 60 row 1 center Y (progress, nozzle, bed)
+  const int16_t row1Y = use_height / 4;            // 60 row 1 center Y (progress, nozzle, bed)
   const int16_t row2Y = use_height / 2 + 28;   // 148 row 2 center Y (part fan, aux fan, chamb fan)
 
   // === H2-style LED progress bar (y=0-5) ===
@@ -544,10 +544,10 @@ static void drawPrinting() {
     tft.setTextDatum(MR_DATUM);
     tft.setTextColor(badgeColor, hdrBg);
     tft.setTextFont(2);
-	tft.fillCircle(use_width - 8 - tft.textWidth(s.gcodeState) - 10, use_height / 12 - 3, 4, badgeColor); // 17
-	tft.drawString(s.gcodeState, use_width - 8, use_height / 12 - 3);									  // 17
+    tft.fillCircle(use_width - 8 - tft.textWidth(s.gcodeState) - 10, use_height / 12 - 3, 4, badgeColor); // 17
+    tft.drawString(s.gcodeState, use_width - 8, use_height / 12 - 3);                                      // 17
 
-	// Printer indicator dots (multi-printer)
+    // Printer indicator dots (multi-printer)
     if (getActiveConnCount() > 1) {
       for (uint8_t di = 0; di < MAX_ACTIVE_PRINTERS; di++) {
         if (!isPrinterConfigured(di)) continue;
@@ -607,8 +607,8 @@ static void drawPrinting() {
       // Prominent ERROR alert
       tft.setTextFont(4);
       tft.setTextColor(CLR_RED, CLR_BG);
-	  tft.drawString("ERROR!", use_width / 2, use_height - 33); // 207
-	} else if (s.remainingMinutes > 0) {
+      tft.drawString("ERROR!", use_width / 2, use_height - 33); // 207
+    } else if (s.remainingMinutes > 0) {
       // Use time() directly - avoids getLocalTime() race condition with timeout 0.
       // Once NTP syncs the RTC keeps running; ntpSynced latches true forever.
       static bool ntpSynced = false;
@@ -641,14 +641,14 @@ static void drawPrinting() {
                      etaTm.tm_mday, etaTm.tm_mon + 1, etaH, etaTm.tm_min, ampm);
         } else {
           if (netSettings.use24h)
-            snprintf(etaBuf, sizeof(etaBuf), "ETA: %02d:%02d", etaH, etaTm.tm_min);
+            snprintf(etaBuf, sizeof(etaBuf), "ETA: %02d:%02d - %02d min", etaH, etaTm.tm_min, s.remainingMinutes);
           else
-            snprintf(etaBuf, sizeof(etaBuf), "ETA: %d:%02d %s", etaH, etaTm.tm_min, ampm);
+            snprintf(etaBuf, sizeof(etaBuf), "ETA: %d:%02d %s - %02d min", etaH, etaTm.tm_min, ampm, s.remainingMinutes);
         }
         tft.setTextFont(4);
         tft.setTextColor(CLR_GREEN, CLR_BG);
-		tft.drawString(etaBuf, use_width / 2, use_height - 33); // 207
-	  } else {
+        tft.drawString(etaBuf, use_width / 2, use_height - 33); // 207
+      } else {
         // NTP not synced yet - show remaining time only
         char remBuf[24];
         uint16_t h = s.remainingMinutes / 60;
@@ -656,13 +656,13 @@ static void drawPrinting() {
         snprintf(remBuf, sizeof(remBuf), "Remaining: %dh %02dm", h, m);
         tft.setTextFont(4);
         tft.setTextColor(CLR_TEXT, CLR_BG);
-		tft.drawString(remBuf, use_width / 2, use_height - 33); // 207
-	  }
+        tft.drawString(remBuf, use_width / 2, use_height - 33); // 207
+      }
     } else {
       tft.setTextFont(4);
       tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
-	  tft.drawString("ETA: ---", use_width / 2, use_height - 33); // 207
-	}
+      tft.drawString("ETA: ---", use_width / 2, use_height - 33); // 207
+    }
   }
 
   // === Bottom status bar — Filament/WiFi | Layer | Speed (y=222-240) ===
@@ -687,17 +687,17 @@ static void drawPrinting() {
         tft.fillCircle(10, use_height - 8, 4, t.colorRgb565); // 232
     tft.setTextDatum(ML_DATUM);
     tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
-	tft.drawString(t.type, 19, use_height - 8); // 232
-	  } else {
+    tft.drawString(t.type, 19, use_height - 8); // 232
+      } else {
         drawWifiSignalIndicator(s);
       }
     } else if (s.ams.vtPresent && s.ams.activeTray == 254) {
-		tft.drawCircle(10, use_height - 8, 5, CLR_TEXT_DARK); // 232
-		tft.fillCircle(10, use_height - 8, 4, s.ams.vtColorRgb565); // 232
-		tft.setTextDatum(ML_DATUM);
-		tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
-		tft.drawString(s.ams.vtType, 19, use_height - 8); // 232
-	} else {
+        tft.drawCircle(10, use_height - 8, 5, CLR_TEXT_DARK); // 232
+        tft.fillCircle(10, use_height - 8, 4, s.ams.vtColorRgb565); // 232
+        tft.setTextDatum(ML_DATUM);
+        tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
+        tft.drawString(s.ams.vtType, 19, use_height - 8); // 232
+    } else {
       drawWifiSignalIndicator(s);
     }
 
@@ -706,12 +706,12 @@ static void drawPrinting() {
     tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
     char layerBuf[20];
     snprintf(layerBuf, sizeof(layerBuf), "L%d/%d", s.layerNum, s.totalLayers);
-	tft.drawString(layerBuf, use_width / 2, use_height - 8); // 232
+    tft.drawString(layerBuf, use_width / 2, use_height - 8); // 232
 
-	// Speed mode (right)
+    // Speed mode (right)
     tft.setTextDatum(MR_DATUM);
     tft.setTextColor(speedLevelColor(s.speedLevel), CLR_BG);
-	tft.drawString(speedLevelName(s.speedLevel), use_width - 4, use_height - 8); // 232
+    tft.drawString(speedLevelName(s.speedLevel), use_width - 4, use_height - 8); // 232
   }
 }
 
@@ -798,8 +798,8 @@ static void drawFinished() {
       char truncName[26];
       strncpy(truncName, s.subtaskName, 25);
       truncName[25] = '\0';
-	  tft.drawString(truncName, use_width / 2, use_height / 2 + 58); // 178
-	}
+      tft.drawString(truncName, use_width / 2, use_height / 2 + 58); // 178
+    }
   }
 
   // === Bottom status bar — WiFi (y=218-236) ===
