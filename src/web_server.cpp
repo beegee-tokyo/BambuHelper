@@ -397,6 +397,7 @@ static const char PAGE_HTML[] PROGMEM = R"rawliteral(
           <option value="0" %BTN_OFF%>Disabled</option>
           <option value="1" %BTN_PUSH%>Push Button (active LOW)</option>
           <option value="2" %BTN_TOUCH%>TTP223 Touch (active HIGH)</option>
+          <option value="3" %BTN_SCREEN%>Touchscreen (XPT2046)</option>
         </select>
         <div id="btnPinRow">
           <label for="btnpin">Button GPIO Pin</label>
@@ -659,8 +660,9 @@ function cloudLogout(){
 
 // --- Hardware & Multi-Printer ---
 function toggleBtnPin(){
+  var v=document.getElementById('btntype').value;
   document.getElementById('btnPinRow').style.display=
-    document.getElementById('btntype').value==='0'?'none':'block';
+    (v==='0'||v==='3')?'none':'block';
 }
 toggleBtnPin();
 
@@ -1067,6 +1069,7 @@ static String processTemplate(const String& html) {
   page.replace("%BTN_OFF%", buttonType == BTN_DISABLED ? "selected" : "");
   page.replace("%BTN_PUSH%", buttonType == BTN_PUSH ? "selected" : "");
   page.replace("%BTN_TOUCH%", buttonType == BTN_TOUCH ? "selected" : "");
+  page.replace("%BTN_SCREEN%", buttonType == BTN_TOUCHSCREEN ? "selected" : "");
   page.replace("%BTN_PIN%", String(buttonPin));
 
   // Buzzer settings
@@ -1396,7 +1399,7 @@ static void handleSaveRotation() {
   // Button settings
   if (server.hasArg("btntype")) {
     uint8_t bt = server.arg("btntype").toInt();
-    if (bt <= 2) buttonType = (ButtonType)bt;
+    if (bt <= 3) buttonType = (ButtonType)bt;
   }
   if (server.hasArg("btnpin")) {
     uint8_t bp = server.arg("btnpin").toInt();

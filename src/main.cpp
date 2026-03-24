@@ -203,15 +203,10 @@ void loop() {
       }
     } else if (s.connected && !s.printing &&
                strcmp(s.gcodeState, "FINISH") != 0) {
-      // SCREEN_CLOCK is sticky — only button press or print start exits
-      if (current == SCREEN_CLOCK) {
-        // nothing — let clock persist while printer is idle
-      } else if (current == SCREEN_OFF) {
-        // Wake from screen off when printer leaves FINISH state
-        setBacklight(getEffectiveBrightness());
-        setScreenState(SCREEN_IDLE);
-        finishScreenStart = 0;
-        idleClockStart = 0;
+      // SCREEN_CLOCK and SCREEN_OFF are sticky — only button press or
+      // new print (s.printing → SCREEN_PRINTING) exits them
+      if (current == SCREEN_CLOCK || current == SCREEN_OFF) {
+        // nothing — stay asleep while printer is idle
       } else if (current != SCREEN_IDLE) {
         if (current == SCREEN_CONNECTING_MQTT) buzzerPlay(BUZZ_CONNECTED);
         setScreenState(SCREEN_IDLE);

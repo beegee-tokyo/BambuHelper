@@ -53,7 +53,7 @@ struct DisplayPowerSettings {
 };
 
 // Button type
-enum ButtonType : uint8_t { BTN_DISABLED = 0, BTN_PUSH = 1, BTN_TOUCH = 2 };
+enum ButtonType : uint8_t { BTN_DISABLED = 0, BTN_PUSH = 1, BTN_TOUCH = 2, BTN_TOUCHSCREEN = 3 };
 
 // Buzzer settings
 struct BuzzerSettings {

@@ -38,8 +38,17 @@
 - **Idle/blank screen never triggered with offline printers** - when both printers were off or unreachable at startup, the display stayed on the "Connecting to Printer" screen forever and never transitioned to clock or blank screen. Idle timeout now also applies to the connecting screen.
 - **No path from idle to screen off** - when "Show clock after finish" was disabled, the idle screen had no timeout path to screen off (only idle-to-clock existed). Both clock and off transitions now work from idle and connecting screens.
 
+## ESP32-2432S028 (CYD) support - Beta
+
+- **New build target** - ESP32-2432S028 ("Cheap Yellow Display") with ILI9341 2.8" 320x240 in portrait mode (240x320)
+- Separate PlatformIO environment (`pio run -e cyd`), does not affect the existing S3+ST7789 build
+- Layout system with per-display profile constants - adding future displays requires only a new `layout_*.h` file
+- **XPT2046 touchscreen** as button replacement - tap anywhere to wake display or cycle printers
+- New button type "Touchscreen (XPT2046)" in web UI, auto-enabled on CYD builds
+- `merge_bins.py` supports `--board cyd` for CYD firmware packaging (bootloader offset 0x1000)
+- MVP layout: gauge grid identical to 240x240, bottom elements (ETA, status bar) anchored to 320px height
+
 ## Build stats
 
-- Flash: 90.2% (1182KB / 1310KB)
-- RAM: 15.7% (51KB / 328KB)
-- Board: lolin_s3_mini (ESP32-S3)
+- **ESP32-S3** (lolin_s3_mini): Flash 90.2% (1182KB), RAM 15.7% (51KB)
+- **CYD** (esp32dev): Flash 94.7% (1240KB), RAM 16.0% (52KB)

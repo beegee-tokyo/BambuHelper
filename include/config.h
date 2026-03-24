@@ -9,9 +9,10 @@
 // =============================================================================
 //  Display
 // =============================================================================
-#define SCREEN_W        240
-#define SCREEN_H        240
-#define BACKLIGHT_PIN   TFT_BL  // GPIO 13
+#include "layout.h"
+#define SCREEN_W        LY_W
+#define SCREEN_H        LY_H
+#define BACKLIGHT_PIN   TFT_BL  // set by build flags per board
 #define BACKLIGHT_CH    0
 #define BACKLIGHT_FREQ  5000
 #define BACKLIGHT_RES   8
@@ -81,7 +82,11 @@
 // =============================================================================
 //  Physical button
 // =============================================================================
+#ifdef DISPLAY_CYD
+#define BUTTON_DEFAULT_PIN    0       // CYD: GPIO4 is RGB LED, not usable
+#else
 #define BUTTON_DEFAULT_PIN    4       // default GPIO for physical button
+#endif
 
 // =============================================================================
 //  Display refresh

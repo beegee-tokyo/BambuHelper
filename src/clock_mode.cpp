@@ -2,6 +2,7 @@
 #include "display_ui.h"
 #include "settings.h"
 #include "config.h"
+#include "layout.h"
 #include <time.h>
 
 static int prevMinute = -1;
@@ -21,7 +22,7 @@ void drawClock() {
   uint16_t bg = dispSettings.bgColor;
 
   // Clear clock area
-  tft.fillRect(0, 50, 240, 140, bg);
+  tft.fillRect(0, LY_CLK_CLEAR_Y, LY_W, LY_CLK_CLEAR_H, bg);
 
   // Time — large 7-segment font
   char timeBuf[12];
@@ -35,13 +36,13 @@ void drawClock() {
   tft.setTextDatum(MC_DATUM);
   tft.setTextFont(7);
   tft.setTextColor(CLR_TEXT, bg);
-  tft.drawString(timeBuf, 120, 100);
+  tft.drawString(timeBuf, LY_W / 2, LY_CLK_TIME_Y);
 
   // AM/PM indicator for 12h mode
   if (!netSettings.use24h) {
     tft.setTextFont(4);
     tft.setTextColor(CLR_TEXT_DIM, bg);
-    tft.drawString(now.tm_hour < 12 ? "AM" : "PM", 120, 135);
+    tft.drawString(now.tm_hour < 12 ? "AM" : "PM", LY_W / 2, LY_CLK_AMPM_Y);
   }
 
   // Date — smaller font below
@@ -55,5 +56,5 @@ void drawClock() {
              days[now.tm_wday], now.tm_mon + 1, now.tm_mday, now.tm_year + 1900);
   tft.setTextFont(4);
   tft.setTextColor(CLR_TEXT_DIM, bg);
-  tft.drawString(dateBuf, 120, 155);
+  tft.drawString(dateBuf, LY_W / 2, LY_CLK_DATE_Y);
 }

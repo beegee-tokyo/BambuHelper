@@ -8,6 +8,7 @@
 
 #include "clock_pong.h"
 #include "config.h"
+#include "layout.h"
 #include "settings.h"
 #include "display_ui.h"
 #include <TFT_eSPI.h>
@@ -15,30 +16,30 @@
 
 extern TFT_eSPI tft;
 
-// ========== Constants ==========
-#define ARK_BRICK_ROWS    5
-#define ARK_BRICK_COLS    10
-#define ARK_BRICK_W       22
-#define ARK_BRICK_H       8
-#define ARK_BRICK_GAP     2
-#define ARK_BRICK_START_X 3
-#define ARK_BRICK_START_Y 28
+// ========== Layout constants (from layout profile) ==========
+#define ARK_BRICK_ROWS    LY_ARK_BRICK_ROWS
+#define ARK_BRICK_COLS    LY_ARK_COLS
+#define ARK_BRICK_W       LY_ARK_BRICK_W
+#define ARK_BRICK_H       LY_ARK_BRICK_H
+#define ARK_BRICK_GAP     LY_ARK_BRICK_GAP
+#define ARK_BRICK_START_X LY_ARK_START_X
+#define ARK_BRICK_START_Y LY_ARK_START_Y
+#define ARK_PADDLE_Y      LY_ARK_PADDLE_Y
+#define ARK_PADDLE_W      LY_ARK_PADDLE_W
+#define ARK_TIME_Y        LY_ARK_TIME_Y
+#define ARK_DATE_Y        LY_ARK_DATE_Y
+#define DIGIT_W           LY_ARK_DIGIT_W
+#define DIGIT_H           LY_ARK_DIGIT_H
+#define COLON_W           LY_ARK_COLON_W
+
+// ========== Gameplay constants (not layout-dependent) ==========
 #define ARK_BALL_SIZE     4
-#define ARK_PADDLE_Y      224
 #define ARK_PADDLE_H      4
-#define ARK_PADDLE_W      30
-#define ARK_TIME_Y        130
-#define ARK_DATE_Y        8
 #define ARK_BALL_SPEED    3.0f
 #define ARK_PADDLE_SPEED  4
 #define ARK_UPDATE_MS     20    // ~50fps
 #define ARK_MAX_FRAGS     20
 #define ARK_TIME_OVERRIDE_MS 60000
-
-// Font 7 digit dimensions (48px tall, variable width)
-#define DIGIT_W  32
-#define DIGIT_H  48
-#define COLON_W  12
 
 // Brick colors per row (classic Arcanoid rainbow)
 static const uint16_t brickColors[ARK_BRICK_ROWS] = {
@@ -63,7 +64,7 @@ static float ballX, ballY, ballVX, ballVY;
 static bool ballActive = false;
 static int prevBallX = -1, prevBallY = -1;
 
-static int paddleX = 120, prevPaddleX = 120;
+static int paddleX = LY_W / 2, prevPaddleX = LY_W / 2;
 
 static bool initialized = false;
 static unsigned long lastUpdateMs = 0;
@@ -234,7 +235,7 @@ static void updatePaddle() {
     target = (int)ballX;
   } else {
     // Ball going up - drift toward center for variety
-    target = 120;
+    target = LY_W / 2;
   }
   if (paddleX < target - 2) paddleX += ARK_PADDLE_SPEED;
   else if (paddleX > target + 2) paddleX -= ARK_PADDLE_SPEED;
@@ -538,7 +539,7 @@ void tickPongClock() {
       tft.setTextSize(1);
       tft.setTextDatum(TC_DATUM);
       tft.setTextColor(TFT_CYAN, TFT_BLACK);
-      tft.fillRect(40, ARK_DATE_Y, 160, 16, TFT_BLACK);
+      tft.fillRect(LY_ARK_DATE_CLR_X, ARK_DATE_Y, LY_ARK_DATE_CLR_W, 16, TFT_BLACK);
       tft.drawString(dateStr, SCREEN_W / 2, ARK_DATE_Y);
       tft.setTextDatum(TL_DATUM);
       strlcpy(prevDateStr, dateStr, sizeof(prevDateStr));
