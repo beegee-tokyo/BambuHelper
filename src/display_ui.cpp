@@ -790,6 +790,50 @@ static void drawFinished() {
 }
 
 // ---------------------------------------------------------------------------
+//  Night mode — scheduled brightness dimming
+// ---------------------------------------------------------------------------
+static unsigned long lastNightCheck = 0;
+static uint8_t lastAppliedBrightness = 0;
+
+static bool isNightHour() {
+  struct tm now;
+  time_t t = time(nullptr);
+  localtime_r(&t, &now);
+  if (now.tm_year < (2020 - 1900)) return false;  // NTP not synced yet
+
+  uint8_t h = now.tm_hour;
+  uint8_t s = dpSettings.nightStartHour;
+  uint8_t e = dpSettings.nightEndHour;
+
+  if (s == e) return false;  // same hour = disabled
+  if (s < e) return (h >= s && h < e);     // e.g. 01:00-07:00
+  return (h >= s || h < e);                // e.g. 22:00-07:00 (wraps midnight)
+}
+
+uint8_t getEffectiveBrightness() {
+  if (dpSettings.nightModeEnabled && isNightHour()) {
+    return dpSettings.nightBrightness;
+  }
+  return brightness;
+}
+
+void checkNightMode() {
+  // Check once per minute
+  unsigned long now = millis();
+  if (now - lastNightCheck < 60000) return;
+  lastNightCheck = now;
+
+  // Don't interfere with screen off
+  if (currentScreen == SCREEN_OFF) return;
+
+  uint8_t target = getEffectiveBrightness();
+  if (target != lastAppliedBrightness) {
+    setBacklight(target);
+    lastAppliedBrightness = target;
+  }
+}
+
+// ---------------------------------------------------------------------------
 //  Main update (called from loop)
 // ---------------------------------------------------------------------------
 void updateDisplay() {
@@ -811,7 +855,7 @@ void updateDisplay() {
   if (currentScreen != prevScreen) {
     // Restore backlight when leaving SCREEN_OFF
     if (prevScreen == SCREEN_OFF && currentScreen != SCREEN_OFF) {
-      setBacklight(brightness);
+      setBacklight(getEffectiveBrightness());
     }
     // Reset text size in case Pong clock left it scaled up
     tft.setTextSize(1);

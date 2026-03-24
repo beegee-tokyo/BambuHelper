@@ -34,7 +34,7 @@ static void handleRotation() {
     }
     if (!anyPrinting) return;
     // A printer started printing — wake display and let rotation proceed
-    setBacklight(brightness);
+    setBacklight(getEffectiveBrightness());
   }
 
   unsigned long now = millis();
@@ -129,7 +129,7 @@ void loop() {
       ScreenState cur = getScreenState();
       if (cur == SCREEN_OFF || cur == SCREEN_CLOCK) {
         // Wake from sleep + reset backoff for immediate reconnect
-        setBacklight(brightness);
+        setBacklight(getEffectiveBrightness());
         finishScreenStart = 0;
         idleClockStart = 0;
         resetMqttBackoff();
@@ -208,7 +208,7 @@ void loop() {
         // nothing — let clock persist while printer is idle
       } else if (current == SCREEN_OFF) {
         // Wake from screen off when printer leaves FINISH state
-        setBacklight(brightness);
+        setBacklight(getEffectiveBrightness());
         setScreenState(SCREEN_IDLE);
         finishScreenStart = 0;
         idleClockStart = 0;
@@ -221,10 +221,12 @@ void loop() {
     }
   }
 
-  // Idle → Clock: if all printers are idle and showClockAfterFinish is on,
-  // transition to clock after finishDisplayMins (same timeout as FINISH→clock).
+  // Idle/Connecting → Clock/Off: if all printers are idle or disconnected,
+  // transition to clock or off after finishDisplayMins timeout.
+  // Covers both SCREEN_IDLE (printer connected but not printing) and
+  // SCREEN_CONNECTING_MQTT (printer offline/unreachable at startup).
   ScreenState cur = getScreenState();
-  if (cur == SCREEN_IDLE && dpSettings.showClockAfterFinish &&
+  if ((cur == SCREEN_IDLE || cur == SCREEN_CONNECTING_MQTT) &&
       !dpSettings.keepDisplayOn && dpSettings.finishDisplayMins > 0) {
     bool anyBusy = false;
     for (uint8_t i = 0; i < MAX_ACTIVE_PRINTERS; i++) {
@@ -236,12 +238,16 @@ void loop() {
     if (!anyBusy) {
       if (idleClockStart == 0) idleClockStart = millis();
       if (millis() - idleClockStart > (unsigned long)dpSettings.finishDisplayMins * 60000UL) {
-        setScreenState(SCREEN_CLOCK);
+        if (dpSettings.showClockAfterFinish || buttonType == BTN_DISABLED) {
+          setScreenState(SCREEN_CLOCK);
+        } else {
+          setScreenState(SCREEN_OFF);
+        }
       }
     } else {
       idleClockStart = 0;
     }
-  } else if (cur != SCREEN_IDLE) {
+  } else if (cur != SCREEN_IDLE && cur != SCREEN_CONNECTING_MQTT) {
     idleClockStart = 0;
   }
 
@@ -258,5 +264,6 @@ void loop() {
   }
 
   buzzerTick();
+  checkNightMode();
   updateDisplay();
 }

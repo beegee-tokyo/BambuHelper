@@ -701,6 +701,9 @@ static void handleConn(MqttConn& c) {
   if (s.lastUpdate > 0 && millis() - s.lastUpdate > staleMs) {
     if (s.printing) {
       s.printing = false;
+      // Also reset gcodeState — otherwise state machine shows SCREEN_IDLE
+      // with "RUNNING" text (2 gauges) instead of SCREEN_PRINTING (6 gauges)
+      strlcpy(s.gcodeState, "IDLE", sizeof(s.gcodeState));
     }
   }
 }

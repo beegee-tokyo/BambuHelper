@@ -244,9 +244,32 @@ static const char PAGE_HTML[] PROGMEM = R"rawliteral(
     <div class="section-body">
       <label for="bright">Brightness: <span id="brightVal">%BRIGHT%</span></label>
       <input type="range" id="bright" min="10" max="255" value="%BRIGHT%"
-             oninput="document.getElementById('brightVal').textContent=this.value">
+             oninput="document.getElementById('brightVal').textContent=this.value;fetch('/brightness?val='+this.value)">
 
-      <label for="rotation">Screen Rotation</label>
+      <div style="margin-top:12px">
+        <div class="check-row">
+          <input type="checkbox" id="nighten" value="1" %NIGHTEN% onchange="document.getElementById('nightFields').style.display=this.checked?'block':'none'">
+          <label for="nighten">Night mode (scheduled dimming)</label>
+        </div>
+        <div id="nightFields" style="display:%NIGHTDISP%;padding:10px;background:#0D1117;border:1px solid #30363D;border-radius:6px;margin-top:6px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
+            <div>
+              <label for="nstart" style="font-size:12px">Dim from</label>
+              <select id="nstart">%NIGHT_START_OPTS%</select>
+            </div>
+            <div>
+              <label for="nend" style="font-size:12px">Dim until</label>
+              <select id="nend">%NIGHT_END_OPTS%</select>
+            </div>
+          </div>
+          <label for="nbright" style="font-size:12px">Night brightness: <span id="nbrightVal">%NBRIGHT%</span></label>
+          <input type="range" id="nbright" min="0" max="255" step="5" value="%NBRIGHT%"
+                 oninput="document.getElementById('nbrightVal').textContent=this.value;fetch('/brightness?val='+this.value)">
+          <p style="font-size:11px;color:#8B949E;margin-top:4px">Recommended: 20-50 for night use. Requires NTP time sync.</p>
+        </div>
+      </div>
+
+      <label for="rotation" style="margin-top:12px">Screen Rotation</label>
       <select id="rotation">
         <option value="0" %ROT0%>0&deg; (default)</option>
         <option value="1" %ROT1%>90&deg;</option>
@@ -719,6 +742,10 @@ function applyTheme(name){
 function applyDisplay(){
   var p=new URLSearchParams();
   p.append('bright',document.getElementById('bright').value);
+  if(document.getElementById('nighten').checked) p.append('nighten','1');
+  p.append('nstart',document.getElementById('nstart').value);
+  p.append('nend',document.getElementById('nend').value);
+  p.append('nbright',document.getElementById('nbright').value);
   p.append('rotation',document.getElementById('rotation').value);
   p.append('fmins',document.getElementById('fmins').value);
   if(document.getElementById('keepon').checked) p.append('keepon','1');
@@ -940,6 +967,25 @@ static String processTemplate(const String& html) {
   }
   page.replace("%BRIGHT%", String(brightness));
 
+  // Night mode
+  page.replace("%NIGHTEN%", dpSettings.nightModeEnabled ? "checked" : "");
+  page.replace("%NIGHTDISP%", dpSettings.nightModeEnabled ? "block" : "none");
+  page.replace("%NBRIGHT%", String(dpSettings.nightBrightness));
+  {
+    String startOpts, endOpts;
+    for (uint8_t h = 0; h < 24; h++) {
+      char opt[64];
+      snprintf(opt, sizeof(opt), "<option value=\"%d\"%s>%02d:00</option>",
+               h, h == dpSettings.nightStartHour ? " selected" : "", h);
+      startOpts += opt;
+      snprintf(opt, sizeof(opt), "<option value=\"%d\"%s>%02d:00</option>",
+               h, h == dpSettings.nightEndHour ? " selected" : "", h);
+      endOpts += opt;
+    }
+    page.replace("%NIGHT_START_OPTS%", startOpts);
+    page.replace("%NIGHT_END_OPTS%", endOpts);
+  }
+
   // Network settings
   page.replace("%NET_DHCP%", netSettings.useDHCP ? "selected" : "");
   page.replace("%NET_STATIC%", netSettings.useDHCP ? "" : "selected");
@@ -1052,8 +1098,14 @@ static void readGaugeColorsFromForm(const char* prefix, GaugeColors& gc) {
 static void readDisplayFromForm() {
   if (server.hasArg("bright")) {
     brightness = server.arg("bright").toInt();
-    setBacklight(brightness);
+    setBacklight(getEffectiveBrightness());
   }
+  // Night mode
+  dpSettings.nightModeEnabled = server.hasArg("nighten");
+  if (server.hasArg("nstart")) dpSettings.nightStartHour = server.arg("nstart").toInt();
+  if (server.hasArg("nend"))   dpSettings.nightEndHour = server.arg("nend").toInt();
+  if (server.hasArg("nbright")) dpSettings.nightBrightness = server.arg("nbright").toInt();
+
   if (server.hasArg("rotation")) {
     uint8_t rot = server.arg("rotation").toInt();
     if (rot <= 3) dispSettings.rotation = rot;
@@ -1198,6 +1250,15 @@ static void handleSaveWifi() {
   server.send(200, "application/json", "{\"status\":\"ok\"}");
   delay(1000);
   ESP.restart();
+}
+
+// Live brightness preview (no save, just PWM update)
+static void handleBrightnessPreview() {
+  if (server.hasArg("val")) {
+    uint8_t val = server.arg("val").toInt();
+    setBacklight(val);
+  }
+  server.send(200, "text/plain", "OK");
 }
 
 // Apply display settings live (no restart)
@@ -1418,6 +1479,10 @@ static void handleSettingsExport() {
   dp["finishDisplayMins"] = dpSettings.finishDisplayMins;
   dp["keepDisplayOn"] = dpSettings.keepDisplayOn;
   dp["showClockAfterFinish"] = dpSettings.showClockAfterFinish;
+  dp["nightModeEnabled"] = dpSettings.nightModeEnabled;
+  dp["nightStartHour"] = dpSettings.nightStartHour;
+  dp["nightEndHour"] = dpSettings.nightEndHour;
+  dp["nightBrightness"] = dpSettings.nightBrightness;
 
   // Network
   JsonObject net = doc["network"].to<JsonObject>();
@@ -1545,6 +1610,10 @@ static void handleSettingsImportFinish() {
     if (dp["finishDisplayMins"].is<uint16_t>()) dpSettings.finishDisplayMins = dp["finishDisplayMins"].as<uint16_t>();
     if (dp["keepDisplayOn"].is<bool>())         dpSettings.keepDisplayOn = dp["keepDisplayOn"].as<bool>();
     if (dp["showClockAfterFinish"].is<bool>())  dpSettings.showClockAfterFinish = dp["showClockAfterFinish"].as<bool>();
+    if (dp["nightModeEnabled"].is<bool>())      dpSettings.nightModeEnabled = dp["nightModeEnabled"].as<bool>();
+    if (dp["nightStartHour"].is<uint8_t>())     dpSettings.nightStartHour = dp["nightStartHour"].as<uint8_t>();
+    if (dp["nightEndHour"].is<uint8_t>())       dpSettings.nightEndHour = dp["nightEndHour"].as<uint8_t>();
+    if (dp["nightBrightness"].is<uint8_t>())    dpSettings.nightBrightness = dp["nightBrightness"].as<uint8_t>();
   }
 
   // Network
@@ -1710,6 +1779,7 @@ void initWebServer() {
   server.on("/buzzer/test", HTTP_POST, handleBuzzerTest);
   server.on("/printer/config", HTTP_GET, handlePrinterConfig);
   server.on("/apply", HTTP_POST, handleApply);
+  server.on("/brightness", HTTP_GET, handleBrightnessPreview);
   server.on("/status", HTTP_GET, handleStatus);
   server.on("/reset", HTTP_GET, handleReset);
   server.on("/debug", HTTP_GET, handleDebug);

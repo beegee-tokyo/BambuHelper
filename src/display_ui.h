@@ -25,5 +25,7 @@ ScreenState getScreenState();
 void setBacklight(uint8_t level);
 void applyDisplaySettings();  // re-apply rotation, bg, force redraw
 void triggerDisplayTransition(); // start printer-name overlay on rotation
+void checkNightMode();        // apply scheduled brightness dimming
+uint8_t getEffectiveBrightness(); // current brightness (night or normal)
 
 #endif // DISPLAY_UI_H
