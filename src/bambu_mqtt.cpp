@@ -294,8 +294,11 @@ static void parseMqttPayload(byte* payload, unsigned int length,
 
               if (tray["tray_type"].is<const char*>()) {
                 t.present = true;
-                if (tray["tray_color"].is<const char*>())
-                  t.colorRgb565 = bambuColorToRgb565(tray["tray_color"].as<const char*>());
+                if (tray["tray_color"].is<const char*>()) {
+                  const char* colorStr = tray["tray_color"].as<const char*>();
+                  t.colorRgb565 = bambuColorToRgb565(colorStr);
+                  MQTT_LOG("AMS tray %d color: \"%s\" -> 0x%04X", idx, colorStr, t.colorRgb565);
+                }
                 // Prefer tray_sub_brands (more descriptive), fallback to tray_type
                 const char* name = nullptr;
                 if (tray["tray_sub_brands"].is<const char*>() &&

@@ -30,6 +30,35 @@
 #define LY_ROW1      60
 #define LY_ROW2      148
 
+// --- AMS tray visualization zone (CYD portrait, between gauges and ETA) ---
+// Gauge row 2 labels extend to ~y=187, so AMS starts at 190 to avoid overlap.
+#define LY_AMS_Y          190   // top of AMS zone (below gauge row 2 labels)
+#define LY_AMS_H          56    // total height (190+56=246, 4px gap before ETA at 250)
+#define LY_AMS_BAR_H      32    // color bar height
+#define LY_AMS_BAR_GAP    2     // gap between bars within one AMS
+#define LY_AMS_GROUP_GAP  8     // gap between AMS unit groups
+#define LY_AMS_LABEL_OFFY 4     // label offset below bars
+#define LY_AMS_MARGIN     8     // left/right margin
+#define LY_AMS_BAR_MAX_W  30    // max bar width (cap for 1 AMS)
+
+// --- CYD landscape mode (rotation 1 or 3 = 320x240 actual) ---
+// Left 240px: gauge area (same grid positions as portrait/default 240x240)
+// Right 80px: AMS vertical strip
+// ETA + bottom bar use 240x240-style Y to fit within 240px height.
+#define LY_LAND_GAUGE_W     240   // gauge area width (left side)
+#define LY_LAND_ETA_Y       190   // ETA zone Y (same as default 240x240)
+#define LY_LAND_ETA_H       30
+#define LY_LAND_ETA_TEXT_Y  207
+#define LY_LAND_BOT_Y       222   // bottom status bar Y
+#define LY_LAND_BOT_H       18
+#define LY_LAND_BOT_CY      232
+#define LY_LAND_WIFI_Y      232
+// AMS vertical strip (right side)
+#define LY_LAND_AMS_X       244   // left edge of AMS column (4px gap from gauges)
+#define LY_LAND_AMS_W       72    // usable width
+#define LY_LAND_AMS_TOP     28    // below header
+#define LY_LAND_AMS_BOT     236   // near bottom edge
+
 // --- Printing: ETA / info zone (moved down for 320px) ---
 #define LY_ETA_Y        250
 #define LY_ETA_H        30

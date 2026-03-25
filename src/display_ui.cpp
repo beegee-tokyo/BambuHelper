@@ -456,14 +456,156 @@ static void drawIdle() {
 }
 
 // ---------------------------------------------------------------------------
+//  AMS tray visualization (CYD only)
+//  Portrait: horizontal strip between gauges and ETA (y=190-246)
+//  Landscape: vertical strip on right side (x=244-316)
+// ---------------------------------------------------------------------------
+#if defined(DISPLAY_CYD)
+
+static bool cydLandscape() {
+  return (dispSettings.rotation == 1 || dispSettings.rotation == 3);
+}
+
+static uint8_t  prevAmsUnitCount = 0;
+static uint8_t  prevAmsActive    = 255;
+static uint16_t prevAmsTrayColors[AMS_MAX_TRAYS] = {0};
+static bool     prevAmsTrayPresent[AMS_MAX_TRAYS] = {false};
+
+// Helper: draw a single AMS tray bar (used by both portrait and landscape)
+static void drawAmsTrayBar(int16_t x, int16_t y, int16_t w, int16_t h,
+                           const AmsTray& tray, bool isActive) {
+  if (tray.present) {
+    if (isActive) {
+      tft.fillRect(x, y, w, h, TFT_WHITE);
+      tft.fillRect(x + 2, y + 2, w - 4, h - 4, tray.colorRgb565);
+    } else {
+      tft.drawRect(x, y, w, h, CLR_TEXT_DARK);
+      tft.fillRect(x + 1, y + 1, w - 2, h - 2, tray.colorRgb565);
+    }
+  } else {
+    tft.drawRect(x, y, w, h, CLR_TEXT_DARK);
+  }
+}
+
+static void drawAmsZone(const BambuState& s, bool force) {
+  // --- Change detection ---
+  bool changed = force;
+  if (!changed) {
+    changed = (s.ams.unitCount != prevAmsUnitCount) ||
+              (s.ams.activeTray != prevAmsActive);
+    if (!changed) {
+      for (uint8_t i = 0; i < s.ams.unitCount * AMS_TRAYS_PER_UNIT && !changed; i++) {
+        changed = (s.ams.trays[i].present != prevAmsTrayPresent[i]) ||
+                  (s.ams.trays[i].colorRgb565 != prevAmsTrayColors[i]);
+      }
+    }
+  }
+  if (!changed) return;
+
+  // Save state for next comparison
+  prevAmsUnitCount = s.ams.unitCount;
+  prevAmsActive    = s.ams.activeTray;
+  for (uint8_t i = 0; i < AMS_MAX_TRAYS; i++) {
+    prevAmsTrayPresent[i] = s.ams.trays[i].present;
+    prevAmsTrayColors[i]  = s.ams.trays[i].colorRgb565;
+  }
+
+  uint8_t units = s.ams.unitCount;
+  bool landscape = cydLandscape();
+
+  if (landscape) {
+    // =====================================================================
+    //  LANDSCAPE: vertical strip on right side (x=244, 72px wide)
+    //  AMS groups stacked vertically, each group has 4 horizontal bars
+    // =====================================================================
+    tft.fillRect(LY_LAND_AMS_X - 4, LY_LAND_AMS_TOP, LY_LAND_AMS_W + 8,
+                 LY_LAND_AMS_BOT - LY_LAND_AMS_TOP, CLR_BG);
+
+    if (units == 0 || units > AMS_MAX_UNITS) return;
+
+    const int16_t totalH = LY_LAND_AMS_BOT - LY_LAND_AMS_TOP;  // ~208px
+    const int16_t groupGap = 6;
+    const int16_t labelH = 10;  // space for AMS letter label
+    int16_t groupH = (totalH - (units - 1) * groupGap) / units;
+    int16_t barH = (groupH - labelH - (AMS_TRAYS_PER_UNIT - 1) * 2) / AMS_TRAYS_PER_UNIT;
+    if (barH > 24) barH = 24;
+    if (barH < 6) barH = 6;
+
+    // Center vertically
+    int16_t actualGroupH = barH * AMS_TRAYS_PER_UNIT + (AMS_TRAYS_PER_UNIT - 1) * 2 + labelH;
+    int16_t totalUsed = actualGroupH * units + (units - 1) * groupGap;
+    int16_t startY = LY_LAND_AMS_TOP + (totalH - totalUsed) / 2;
+
+    for (uint8_t u = 0; u < units; u++) {
+      int16_t gy = startY + u * (actualGroupH + groupGap);
+
+      // AMS label at top of group
+      char label[2] = { (char)('A' + u), '\0' };
+      tft.setTextDatum(MC_DATUM);
+      tft.setTextFont(1);
+      tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
+      tft.drawString(label, LY_LAND_AMS_X + LY_LAND_AMS_W / 2, gy + labelH / 2);
+
+      // 4 horizontal bars stacked vertically
+      for (uint8_t t = 0; t < AMS_TRAYS_PER_UNIT; t++) {
+        uint8_t trayIdx = u * AMS_TRAYS_PER_UNIT + t;
+        int16_t by = gy + labelH + t * (barH + 2);
+        drawAmsTrayBar(LY_LAND_AMS_X, by, LY_LAND_AMS_W, barH,
+                       s.ams.trays[trayIdx], trayIdx == s.ams.activeTray);
+      }
+    }
+
+  } else {
+    // =====================================================================
+    //  PORTRAIT: horizontal strip between gauges and ETA (y=190-246)
+    //  AMS groups side by side, each with 4 vertical bars
+    // =====================================================================
+    tft.fillRect(0, LY_AMS_Y, LY_W, LY_AMS_H, CLR_BG);
+
+    if (units == 0 || units > AMS_MAX_UNITS) return;
+
+    const int16_t usableW = LY_W - 2 * LY_AMS_MARGIN;
+    int16_t groupW = (usableW - (units - 1) * LY_AMS_GROUP_GAP) / units;
+    int16_t barW = (groupW - (AMS_TRAYS_PER_UNIT - 1) * LY_AMS_BAR_GAP) / AMS_TRAYS_PER_UNIT;
+    if (barW > LY_AMS_BAR_MAX_W) barW = LY_AMS_BAR_MAX_W;
+    if (barW < 4) barW = 4;
+
+    int16_t actualGroupW = barW * AMS_TRAYS_PER_UNIT + (AMS_TRAYS_PER_UNIT - 1) * LY_AMS_BAR_GAP;
+    int16_t totalW = actualGroupW * units + (units - 1) * LY_AMS_GROUP_GAP;
+    int16_t startX = (LY_W - totalW) / 2;
+
+    int16_t barY = LY_AMS_Y + (LY_AMS_H - LY_AMS_BAR_H - LY_AMS_LABEL_OFFY - 8) / 2;
+    int16_t labelY = barY + LY_AMS_BAR_H + LY_AMS_LABEL_OFFY;
+
+    for (uint8_t u = 0; u < units; u++) {
+      int16_t groupX = startX + u * (actualGroupW + LY_AMS_GROUP_GAP);
+
+      for (uint8_t t = 0; t < AMS_TRAYS_PER_UNIT; t++) {
+        uint8_t trayIdx = u * AMS_TRAYS_PER_UNIT + t;
+        int16_t bx = groupX + t * (barW + LY_AMS_BAR_GAP);
+        drawAmsTrayBar(bx, barY, barW, LY_AMS_BAR_H,
+                       s.ams.trays[trayIdx], trayIdx == s.ams.activeTray);
+      }
+
+      char label[2] = { (char)('A' + u), '\0' };
+      tft.setTextDatum(MC_DATUM);
+      tft.setTextFont(1);
+      tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
+      tft.drawString(label, groupX + actualGroupW / 2, labelY);
+    }
+  }
+}
+#endif // DISPLAY_CYD
+
+// ---------------------------------------------------------------------------
 //  Helper: draw WiFi signal indicator in bottom-left corner
 // ---------------------------------------------------------------------------
-static void drawWifiSignalIndicator(const BambuState& s) {
+static void drawWifiSignalIndicator(const BambuState& s, int16_t wifiY = LY_WIFI_Y) {
   tft.setTextDatum(ML_DATUM);
   tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
   char wifiBuf[16];
   snprintf(wifiBuf, sizeof(wifiBuf), "%ddBm", s.wifiSignal);
-  tft.drawString(wifiBuf, LY_WIFI_X, LY_WIFI_Y);
+  tft.drawString(wifiBuf, LY_WIFI_X, wifiY);
 }
 
 // ---------------------------------------------------------------------------
@@ -498,6 +640,29 @@ static void drawPrinting() {
   const int16_t col3 = LY_COL3;
   const int16_t row1Y = LY_ROW1;
   const int16_t row2Y = LY_ROW2;
+
+  // Effective Y positions — landscape on CYD uses 240x240-style positions
+#if defined(DISPLAY_CYD)
+  const bool land = cydLandscape();
+  const int16_t eff_etaY     = land ? LY_LAND_ETA_Y     : LY_ETA_Y;
+  const int16_t eff_etaH     = land ? LY_LAND_ETA_H     : LY_ETA_H;
+  const int16_t eff_etaTextY = land ? LY_LAND_ETA_TEXT_Y : LY_ETA_TEXT_Y;
+  const int16_t eff_botY     = land ? LY_LAND_BOT_Y     : LY_BOT_Y;
+  const int16_t eff_botH     = land ? LY_LAND_BOT_H     : LY_BOT_H;
+  const int16_t eff_botCY    = land ? LY_LAND_BOT_CY    : LY_BOT_CY;
+#else
+  const int16_t eff_etaY     = LY_ETA_Y;
+  const int16_t eff_etaH     = LY_ETA_H;
+  const int16_t eff_etaTextY = LY_ETA_TEXT_Y;
+  const int16_t eff_botY     = LY_BOT_Y;
+  const int16_t eff_botH     = LY_BOT_H;
+  const int16_t eff_botCY    = LY_BOT_CY;
+#endif
+
+  // === Clear extended area on CYD (fix garbage pixels below gauges) ===
+#if defined(DISPLAY_CYD)
+  if (forceRedraw) tft.fillRect(0, 180, SCREEN_W, LY_H - 180, CLR_BG);
+#endif
 
   // === H2-style LED progress bar (y=0-5) ===
   if (progChanged) {
@@ -575,21 +740,26 @@ static void drawPrinting() {
                  &dispSettings.chamberFan, smoothChamberFan);
   }
 
-  // === Info line — ETA finish time or PAUSE/ERROR alert (below row 2 labels) ===
+  // === AMS tray visualization (CYD portrait only) ===
+#if defined(DISPLAY_CYD)
+  if (!land && s.ams.present && s.ams.unitCount > 0) {
+    drawAmsZone(s, forceRedraw);
+  }
+#endif
+
+  // === Info line — ETA finish time or PAUSE/ERROR alert ===
   if (etaChanged || stateChanged) {
-    tft.fillRect(0, LY_ETA_Y, SCREEN_W, LY_ETA_H, CLR_BG);
+    tft.fillRect(0, eff_etaY, SCREEN_W, eff_etaH, CLR_BG);
     tft.setTextDatum(MC_DATUM);
 
     if (strcmp(s.gcodeState, "PAUSE") == 0) {
-      // Prominent PAUSE alert
       tft.setTextFont(4);
       tft.setTextColor(CLR_YELLOW, CLR_BG);
-      tft.drawString("PAUSED", SCREEN_W / 2, LY_ETA_TEXT_Y);
+      tft.drawString("PAUSED", SCREEN_W / 2, eff_etaTextY);
     } else if (strcmp(s.gcodeState, "FAILED") == 0) {
-      // Prominent ERROR alert
       tft.setTextFont(4);
       tft.setTextColor(CLR_RED, CLR_BG);
-      tft.drawString("ERROR!", SCREEN_W / 2, LY_ETA_TEXT_Y);
+      tft.drawString("ERROR!", SCREEN_W / 2, eff_etaTextY);
     } else if (s.remainingMinutes > 0) {
       // Use time() directly - avoids getLocalTime() race condition with timeout 0.
       // Once NTP syncs the RTC keeps running; ntpSynced latches true forever.
@@ -613,7 +783,6 @@ static void drawPrinting() {
           etaH = etaH % 12;
           if (etaH == 0) etaH = 12;
         }
-        // Show date only if finish is not today
         if (etaTm.tm_yday != now.tm_yday || etaTm.tm_year != now.tm_year) {
           if (netSettings.use24h)
             snprintf(etaBuf, sizeof(etaBuf), "ETA: %d.%02d %02d:%02d",
@@ -629,26 +798,24 @@ static void drawPrinting() {
         }
         tft.setTextFont(4);
         tft.setTextColor(CLR_GREEN, CLR_BG);
-        tft.drawString(etaBuf, SCREEN_W / 2, LY_ETA_TEXT_Y);
+        tft.drawString(etaBuf, SCREEN_W / 2, eff_etaTextY);
       } else {
-        // NTP not synced yet - show remaining time only
         char remBuf[24];
         uint16_t h = s.remainingMinutes / 60;
         uint16_t m = s.remainingMinutes % 60;
         snprintf(remBuf, sizeof(remBuf), "Remaining: %dh %02dm", h, m);
         tft.setTextFont(4);
         tft.setTextColor(CLR_TEXT, CLR_BG);
-        tft.drawString(remBuf, SCREEN_W / 2, LY_ETA_TEXT_Y);
+        tft.drawString(remBuf, SCREEN_W / 2, eff_etaTextY);
       }
     } else {
       tft.setTextFont(4);
       tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
-      tft.drawString("ETA: ---", SCREEN_W / 2, LY_ETA_TEXT_Y);
+      tft.drawString("ETA: ---", SCREEN_W / 2, eff_etaTextY);
     }
   }
 
-  // === Bottom status bar — Filament/WiFi | Layer | Speed (y=222-240) ===
-  // WiFi signal only matters when AMS indicator is not shown
+  // === Bottom status bar — Filament/WiFi | Layer | Speed ===
   bool showingWifi = !(s.ams.present && s.ams.activeTray < AMS_MAX_TRAYS && s.ams.trays[s.ams.activeTray].present)
                   && !(s.ams.vtPresent && s.ams.activeTray == 254);
   bool bottomChanged = forceRedraw ||
@@ -658,29 +825,29 @@ static void drawPrinting() {
                        (s.ams.activeTray != prevState.ams.activeTray) ||
                        (showingWifi && s.wifiSignal != prevState.wifiSignal);
   if (bottomChanged) {
-    tft.fillRect(0, LY_BOT_Y, SCREEN_W, LY_BOT_H, CLR_BG);
+    tft.fillRect(0, eff_botY, SCREEN_W, eff_botH, CLR_BG);
     tft.setTextFont(2);
 
     // Left: filament indicator (if AMS active) or WiFi signal
     if (s.ams.present && s.ams.activeTray < AMS_MAX_TRAYS) {
       AmsTray& t = s.ams.trays[s.ams.activeTray];
       if (t.present) {
-        tft.drawCircle(10, LY_BOT_CY, 5, CLR_TEXT_DARK);
-        tft.fillCircle(10, LY_BOT_CY, 4, t.colorRgb565);
+        tft.drawCircle(10, eff_botCY, 5, CLR_TEXT_DARK);
+        tft.fillCircle(10, eff_botCY, 4, t.colorRgb565);
         tft.setTextDatum(ML_DATUM);
         tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
-        tft.drawString(t.type, 19, LY_BOT_CY);
+        tft.drawString(t.type, 19, eff_botCY);
       } else {
-        drawWifiSignalIndicator(s);
+        drawWifiSignalIndicator(s, eff_botCY);
       }
     } else if (s.ams.vtPresent && s.ams.activeTray == 254) {
-      tft.drawCircle(10, LY_BOT_CY, 5, CLR_TEXT_DARK);
-      tft.fillCircle(10, LY_BOT_CY, 4, s.ams.vtColorRgb565);
+      tft.drawCircle(10, eff_botCY, 5, CLR_TEXT_DARK);
+      tft.fillCircle(10, eff_botCY, 4, s.ams.vtColorRgb565);
       tft.setTextDatum(ML_DATUM);
       tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
-      tft.drawString(s.ams.vtType, 19, LY_BOT_CY);
+      tft.drawString(s.ams.vtType, 19, eff_botCY);
     } else {
-      drawWifiSignalIndicator(s);
+      drawWifiSignalIndicator(s, eff_botCY);
     }
 
     // Layer count (center)
@@ -688,12 +855,12 @@ static void drawPrinting() {
     tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
     char layerBuf[20];
     snprintf(layerBuf, sizeof(layerBuf), "L%d/%d", s.layerNum, s.totalLayers);
-    tft.drawString(layerBuf, SCREEN_W / 2, LY_BOT_CY);
+    tft.drawString(layerBuf, SCREEN_W / 2, eff_botCY);
 
     // Speed mode (right)
     tft.setTextDatum(MR_DATUM);
     tft.setTextColor(speedLevelColor(s.speedLevel), CLR_BG);
-    tft.drawString(speedLevelName(s.speedLevel), SCREEN_W - 4, LY_BOT_CY);
+    tft.drawString(speedLevelName(s.speedLevel), SCREEN_W - 4, eff_botCY);
   }
 }
 
