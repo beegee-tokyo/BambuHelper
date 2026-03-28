@@ -466,13 +466,17 @@ static void parseMqttPayload(byte* payload, unsigned int length,
   if (print["spd_lvl"].is<int>())
     s.speedLevel = print["spd_lvl"].as<int>();
 
-  // Door sensor (H2 series): stat is hex string, bit 0x00800000 = door open
+  // Door sensor: stat is hex string, bit 0x00800000 = door open
+  // H2C sends 9+ hex digits (>32 bit), must use strtoull
   if (print["stat"].is<const char*>()) {
-    uint32_t statVal = strtoul(print["stat"].as<const char*>(), nullptr, 16);
+    uint64_t statVal = strtoull(print["stat"].as<const char*>(), nullptr, 16);
+    bool wasOpen = s.doorOpen;
     s.doorOpen = (statVal & 0x00800000) != 0;
     if (!s.doorSensorPresent) {
       s.doorSensorPresent = true;
-      MQTT_LOG("door sensor detected (stat=0x%08X, door=%s)", statVal, s.doorOpen ? "OPEN" : "CLOSED");
+      MQTT_LOG("door sensor detected (stat=0x%llX, door=%s)", statVal, s.doorOpen ? "OPEN" : "CLOSED");
+    } else if (s.doorOpen != wasOpen) {
+      MQTT_LOG("door %s (stat=0x%llX)", s.doorOpen ? "OPENED" : "CLOSED", statVal);
     }
   }
 

@@ -957,6 +957,8 @@ static void drawPrinting() {
                   && !(s.ams.vtPresent && s.ams.activeTray == 254);
   bool bottomChanged = forceRedraw ||
                        (s.speedLevel != prevState.speedLevel) ||
+                       (s.doorOpen != prevState.doorOpen) ||
+                       (s.doorSensorPresent != prevState.doorSensorPresent) ||
                        (s.layerNum != prevState.layerNum) ||
                        (s.totalLayers != prevState.totalLayers) ||
                        (s.ams.activeTray != prevState.ams.activeTray) ||
@@ -995,10 +997,15 @@ static void drawPrinting() {
     snprintf(layerBuf, sizeof(layerBuf), "L%d/%d", s.layerNum, s.totalLayers);
     tft.drawString(layerBuf, SCREEN_W / 2, eff_botCY);
 
-    // Speed mode (right)
+    // Right: door status (if sensor present) or speed mode
     tft.setTextDatum(MR_DATUM);
-    tft.setTextColor(speedLevelColor(s.speedLevel), CLR_BG);
-    tft.drawString(speedLevelName(s.speedLevel), SCREEN_W - 4, eff_botCY);
+    if (s.doorSensorPresent) {
+      tft.setTextColor(s.doorOpen ? CLR_ORANGE : CLR_GREEN, CLR_BG);
+      tft.drawString(s.doorOpen ? "Door Open" : "Door Closed", SCREEN_W - 4, eff_botCY);
+    } else {
+      tft.setTextColor(speedLevelColor(s.speedLevel), CLR_BG);
+      tft.drawString(speedLevelName(s.speedLevel), SCREEN_W - 4, eff_botCY);
+    }
   }
 }
 
@@ -1106,19 +1113,29 @@ static void drawFinished() {
 
   // === Bottom status bar ===
   bool waitingForDoor = dpSettings.doorAckEnabled && s.doorSensorPresent && !s.doorAcknowledged;
-  if (forceRedraw || (waitingForDoor != prevWaitingForDoor)) {
+  bool finBottomChanged = forceRedraw ||
+                          (waitingForDoor != prevWaitingForDoor) ||
+                          (s.doorSensorPresent && s.doorOpen != prevState.doorOpen);
+  if (finBottomChanged) {
     prevWaitingForDoor = waitingForDoor;
     tft.fillRect(0, eff_finBotY, scrW, eff_finBotH, CLR_BG);
     tft.setTextFont(1);
-    tft.setTextDatum(MC_DATUM);
     if (waitingForDoor) {
+      tft.setTextDatum(MC_DATUM);
       tft.setTextColor(CLR_ORANGE, CLR_BG);
       tft.drawString("Open door to dismiss", cx, eff_finWifiY);
     } else {
+      tft.setTextDatum(ML_DATUM);
       tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
       char wifiBuf[20];
       snprintf(wifiBuf, sizeof(wifiBuf), "WiFi: %d dBm", s.wifiSignal);
-      tft.drawString(wifiBuf, cx, eff_finWifiY);
+      tft.drawString(wifiBuf, 4, eff_finWifiY);
+    }
+    // Door status (right) — always show when sensor present
+    if (s.doorSensorPresent) {
+      tft.setTextDatum(MR_DATUM);
+      tft.setTextColor(s.doorOpen ? CLR_ORANGE : CLR_GREEN, CLR_BG);
+      tft.drawString(s.doorOpen ? "Door Open" : "Door Closed", scrW - 4, eff_finWifiY);
     }
   }
 }
