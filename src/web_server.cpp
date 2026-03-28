@@ -248,7 +248,7 @@ static const char PAGE_HTML[] PROGMEM = R"rawliteral(
 
       <div style="margin-top:12px">
         <div class="check-row">
-          <input type="checkbox" id="nighten" value="1" %NIGHTEN% onchange="document.getElementById('nightFields').style.display=this.checked?'block':'none'">
+          <input type="checkbox" id="nighten" value="1" %NIGHTEN% onchange="document.getElementById('nightFields').style.display=this.checked?'block':'none';toggleSetting('nighten',this.checked)">
           <label for="nighten">Night mode (scheduled dimming)</label>
         </div>
         <div id="nightFields" style="display:%NIGHTDISP%;padding:10px;background:#0D1117;border:1px solid #30363D;border-radius:6px;margin-top:6px">
@@ -280,40 +280,39 @@ static const char PAGE_HTML[] PROGMEM = R"rawliteral(
       <label for="fmins">Display off after print complete (minutes, 0 = never)</label>
       <input type="number" id="fmins" min="0" max="999" value="%FMINS%">
       <div class="check-row">
-        <input type="checkbox" id="keepon" value="1" %KEEPON%>
+        <input type="checkbox" id="keepon" value="1" %KEEPON% onchange="toggleSetting('keepon',this.checked)">
         <label for="keepon">Keep display always on (override timeout)</label>
       </div>
       <div class="check-row">
-        <input type="checkbox" id="clock" value="1" %CLOCK%>
+        <input type="checkbox" id="clock" value="1" %CLOCK% onchange="toggleSetting('clock',this.checked)">
         <label for="clock">Show clock after print (instead of screen off)</label>
       </div>
       <div class="check-row">
-        <input type="checkbox" id="dack" value="1" %DACK%>
+        <input type="checkbox" id="dack" value="1" %DACK% onchange="toggleSetting('dack',this.checked)">
         <label for="dack">Wait for door open after print (acknowledge print removal)</label>
       </div>
       <div class="check-row">
-        <input type="checkbox" id="abar" value="1" %ABAR%>
+        <input type="checkbox" id="abar" value="1" %ABAR% onchange="toggleSetting('abar',this.checked)">
         <label for="abar">Animated progress bar (shimmer effect)</label>
       </div>
       <div class="check-row" id="pong-row">
-        <input type="checkbox" id="pong" value="1" %PONG%>
+        <input type="checkbox" id="pong" value="1" %PONG% onchange="toggleSetting('pong',this.checked)">
         <label for="pong">Breakout clock (animated game as clock screen)</label>
       </div>
       <div class="check-row">
-        <input type="checkbox" id="slbl" value="1" %SLBL%>
+        <input type="checkbox" id="slbl" value="1" %SLBL% onchange="toggleSetting('slbl',this.checked)">
         <label for="slbl">Smaller gauge labels</label>
       </div>
       <div style="font-size:11px;color:#8B949E;margin-top:4px">
         Note: Without a physical button, display will show clock instead of turning off (no way to wake manually).
       </div>
 
-      <label for="cydextra" style="margin-top:12px">CYD Extra Area (240x320 / 320x240 only)</label>
-      <select id="cydextra">
-        <option value="0" %CYDEX0%>AMS Filament</option>
-        <option value="1" %CYDEX1%>Extra Gauges (Chamber + Heatbreak Fan)</option>
-      </select>
-      <div style="font-size:11px;color:#8B949E;margin-top:2px">
-        Controls what is shown in the extra space on CYD displays. Has no effect on 240x240 screens.
+      <div id="cydextra-section" style="display:%CYDEXVIS%">
+        <label for="cydextra" style="margin-top:12px">CYD Extra Area</label>
+        <select id="cydextra">
+          <option value="0" %CYDEX0%>AMS Filament</option>
+          <option value="1" %CYDEX1%>Extra Gauges (Chamber + Heatbreak Fan)</option>
+        </select>
       </div>
 
       <div style="margin-top:16px;padding-top:12px;border-top:1px solid #30363D">
@@ -323,7 +322,7 @@ static const char PAGE_HTML[] PROGMEM = R"rawliteral(
 %TIMEZONE_OPTIONS%
         </select>
         <div class="check-row">
-          <input type="checkbox" id="use24h" value="1" %USE24H%>
+          <input type="checkbox" id="use24h" value="1" %USE24H% onchange="toggleSetting('use24h',this.checked)">
           <label for="use24h">24-hour time format</label>
         </div>
       </div>
@@ -784,6 +783,14 @@ function applyDisplay(){
   }).catch(function(){showToast('Error');});
 }
 
+// --- Instant checkbox toggle ---
+function toggleSetting(key,on){
+  fetch('/save/toggle',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'key='+key+'&val='+(on?'1':'0')}).then(function(r){
+    if(r.ok) showToast(on?key+' ON':key+' OFF');
+    else showToast('Error');
+  }).catch(function(){showToast('Error');});
+}
+
 // --- Diagnostics ---
 function toggleDebug(on){
   fetch('/debug/toggle',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'on='+(on?'1':'0')}).then(r=>{
@@ -1044,7 +1051,12 @@ static void processTemplate(String& page) {
   page.replace("%PONG%", dispSettings.pongClock ? "checked" : "");
   page.replace("%SLBL%", dispSettings.smallLabels ? "checked" : "");
 
-  // CYD extra area mode
+  // CYD extra area mode (hidden on 240x240 builds)
+#if defined(DISPLAY_CYD)
+  page.replace("%CYDEXVIS%", "block");
+#else
+  page.replace("%CYDEXVIS%", "none");
+#endif
   page.replace("%CYDEX0%", dispSettings.cydExtraMode == 0 ? "selected" : "");
   page.replace("%CYDEX1%", dispSettings.cydExtraMode == 1 ? "selected" : "");
 
@@ -1365,6 +1377,31 @@ static void handleDebugToggle() {
     mqttDebugLog = (server.arg("on") == "1");
   }
   server.send(200, "text/plain", mqttDebugLog ? "ON" : "OFF");
+}
+
+static void handleToggleSetting() {
+  if (!server.hasArg("key") || !server.hasArg("val")) {
+    server.send(400, "text/plain", "Missing key/val");
+    return;
+  }
+  String key = server.arg("key");
+  bool on = (server.arg("val") == "1");
+
+  if      (key == "keepon")  dpSettings.keepDisplayOn = on;
+  else if (key == "clock")   dpSettings.showClockAfterFinish = on;
+  else if (key == "dack")    dpSettings.doorAckEnabled = on;
+  else if (key == "abar")    dispSettings.animatedBar = on;
+  else if (key == "pong")    dispSettings.pongClock = on;
+  else if (key == "slbl")    dispSettings.smallLabels = on;
+  else if (key == "nighten") dpSettings.nightModeEnabled = on;
+  else if (key == "use24h")  netSettings.use24h = on;
+  else {
+    server.send(400, "text/plain", "Unknown key");
+    return;
+  }
+
+  saveSettings();
+  server.send(200, "text/plain", "OK");
 }
 
 static void handleCloudLogout() {
@@ -1812,6 +1849,7 @@ void initWebServer() {
   server.on("/reset", HTTP_GET, handleReset);
   server.on("/debug", HTTP_GET, handleDebug);
   server.on("/debug/toggle", HTTP_POST, handleDebugToggle);
+  server.on("/save/toggle", HTTP_POST, handleToggleSetting);
   server.on("/cloud/logout", HTTP_POST, handleCloudLogout);
   server.on("/settings/export", HTTP_GET, handleSettingsExport);
   server.on("/settings/import", HTTP_POST, handleSettingsImportFinish, handleSettingsImportUpload);
