@@ -34,7 +34,7 @@ When using Bambu Cloud, BambuHelper connects through Bambu Lab's cloud MQTT serv
 
 | Preview | Notes |
 |---|---|
-| ![CYD display](img/CYD.png) | **CYD / ESP32-2432S028** support is available and currently **beta**. This is the larger `320x240` display version. Flashing is done the same way as the standard `240x240` build, but on [ESP Web Flasher](https://espressif.github.io/esptool-js/) you should set **Baudrate: 115200** before clicking **Connect**. This low baudrate note is for **CYD only**. The standard ESP32-S3 240x240 version does not require this change. Tested behavior so far: CYD flashing works reliably only at the lowest speed. |
+| ![CYD display](img/CYD.png) | **CYD / ESP32-2432S028** support is available and currently **beta**. This is the larger `320x240` display version. Flashing is done the same way as the standard `240x240` build, but on [ESP Web Flasher](https://espressif.github.io/esptool-js/) you should set **Baudrate: 115200** before clicking **Connect**. This low baudrate note is for **CYD only**. The standard ESP32-S3 240x240 version does not require this change. Tested behavior so far: The first connection attempt may fail - click **Disconnect** in the web tool, then **Connect** again and it should work on the second try. **Do not physically unplug the USB cable between attempts** - just use the buttons in the web flasher. |
 
 ## Features
 
@@ -116,7 +116,7 @@ You can change the buzzer GPIO later in the web interface under **Buzzer**. The 
 
 1. Download the latest `BambuHelper-WebFlasher.bin` from [Releases](../../releases)
 2. Open [ESP Web Flasher](https://espressif.github.io/esptool-js/) in Chrome or Edge
-3. If you are flashing a **CYD**, set **Baudrate** to **115200** before clicking **Connect**. This applies to **CYD only**.
+3. If you are flashing a **CYD**, set **Baudrate** to **115200** before clicking **Connect**. Two or more attempts may be needed - the first one will fail. This applies to **CYD only**.
 4. Connect your ESP32 via USB
 5. Click **Connect** and select your device
 6. Set flash address to **0x0**
