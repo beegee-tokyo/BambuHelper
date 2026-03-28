@@ -389,7 +389,7 @@ static void drawPrinting() {
 
     snprintf(helper, sizeof(helper), "N: %.1f C B: %.1f C", s.nozzleTemp, s.bedTemp);
     rak1921_draw_line(2, helper);
-    snprintf(helper, sizeof(helper), "P: %.0f%% A: %.0f%% C: %.0f%%", s.coolingFanPct, s.auxFanPct, s.chamberFanPct);
+    snprintf(helper, sizeof(helper), "P: %d%% A: %d%% C: %d%%", s.coolingFanPct, s.auxFanPct, s.chamberFanPct);
     rak1921_draw_line(3, helper);
 
     if (strcmp(s.gcodeState, "PAUSE") == 0) {
@@ -501,7 +501,7 @@ static void drawFinished() {
     // Temperatures and fans
     snprintf(helper, sizeof(helper), "N: %.1f B: %.1f", s.nozzleTemp, s.bedTemp);
     rak1921_draw_line(3, helper);
-    snprintf(helper, sizeof(helper), "P: %.1f%% A: %.1f%% C: %.1f%%", s.coolingFanPct, s.auxFanPct, s.chamberFanPct);
+    snprintf(helper, sizeof(helper), "P: %d%% A: %d%% C: %d%%", s.coolingFanPct, s.auxFanPct, s.chamberFanPct);
     rak1921_draw_line(4, helper);
 
     snprintf(helper, sizeof(helper), "WiFi: %d dBm", s.wifiSignal);
