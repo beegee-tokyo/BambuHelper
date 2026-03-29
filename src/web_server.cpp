@@ -243,10 +243,10 @@ static const char PAGE_HTML[] PROGMEM = R"rawliteral(
   </div>
   <div class="section-content" id="sec-display">
     <div class="section-body">
+      <h3 style="color:#58A6FF;font-size:14px;margin-bottom:10px">Brightness</h3>
       <label for="bright">Brightness: <span id="brightVal">%BRIGHT%</span></label>
       <input type="range" id="bright" min="10" max="255" step="5" value="%BRIGHT%"
              oninput="document.getElementById('brightVal').textContent=this.value;sendBrightness(this.value)">
-
       <div style="margin-top:12px">
         <div class="check-row">
           <input type="checkbox" id="nighten" value="1" %NIGHTEN% onchange="document.getElementById('nightFields').style.display=this.checked?'block':'none';toggleSetting('nighten',this.checked)">
@@ -270,59 +270,55 @@ static const char PAGE_HTML[] PROGMEM = R"rawliteral(
         </div>
       </div>
 
-      <label for="rotation" style="margin-top:12px">Screen Rotation</label>
-      <select id="rotation">
-        <option value="0" %ROT0%>0&deg; (default)</option>
-        <option value="1" %ROT1%>90&deg;</option>
-        <option value="2" %ROT2%>180&deg;</option>
-        <option value="3" %ROT3%>270&deg;</option>
-      </select>
-
-      <label for="fmins">Display off after print complete (minutes, 0 = never)</label>
-      <input type="number" id="fmins" min="0" max="999" value="%FMINS%">
-      <div class="check-row">
-        <input type="checkbox" id="keepon" value="1" %KEEPON% onchange="toggleSetting('keepon',this.checked)">
-        <label for="keepon">Keep display always on (override timeout)</label>
-      </div>
-      <div class="check-row">
-        <input type="checkbox" id="clock" value="1" %CLOCK%>
-        <label for="clock">Show clock after print (instead of screen off)</label>
-      </div>
-      <div id="ssbrightWrap" style="display:%CLOCKDISP%">
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid #30363D">
+        <h3 style="color:#58A6FF;font-size:14px;margin-bottom:10px">After Print Completes</h3>
+        <label for="afterprint">When print finishes</label>
+        <select id="afterprint" onchange="toggleAfterPrint()">
+          <option value="0" %AP_CLOCK0%>Go to clock/screensaver immediately</option>
+          <option value="1" %AP_F1%>Show finish screen for 1 minute</option>
+          <option value="3" %AP_F3%>Show finish screen for 3 minutes</option>
+          <option value="5" %AP_F5%>Show finish screen for 5 minutes</option>
+          <option value="10" %AP_F10%>Show finish screen for 10 minutes</option>
+          <option value="custom" %AP_CUSTOM%>Custom duration...</option>
+          <option value="keepon" %AP_KEEPON%>Keep finish screen on</option>
+        </select>
+        <div id="customMinsWrap" style="display:%CUSTOM_DISP%;margin-top:6px">
+          <label for="fmins" style="font-size:12px">Minutes</label>
+          <input type="number" id="fmins" min="1" max="999" value="%FMINS%">
+        </div>
+        <div class="check-row" style="margin-top:8px">
+          <input type="checkbox" id="dack" value="1" %DACK% onchange="toggleSetting('dack',this.checked)">
+          <label for="dack">Wait for door open before timeout</label>
+        </div>
         <label for="ssbright" style="margin-top:12px;font-size:12px">Screensaver brightness: <span id="ssbrightVal">%SSBRIGHT%</span></label>
         <input type="range" id="ssbright" min="0" max="255" step="5" value="%SSBRIGHT%"
                oninput="document.getElementById('ssbrightVal').textContent=this.value">
         <p style="font-size:11px;color:#8B949E;margin-top:4px">Brightness when clock/screensaver is active. Set to 0 to turn off backlight.</p>
-      </div>
-      <div class="check-row">
-        <input type="checkbox" id="dack" value="1" %DACK% onchange="toggleSetting('dack',this.checked)">
-        <label for="dack">Wait for door open after print (acknowledge print removal)</label>
-      </div>
-      <div class="check-row">
-        <input type="checkbox" id="abar" value="1" %ABAR% onchange="toggleSetting('abar',this.checked)">
-        <label for="abar">Animated progress bar (shimmer effect)</label>
-      </div>
-      <div class="check-row" id="pong-row">
-        <input type="checkbox" id="pong" value="1" %PONG% onchange="toggleSetting('pong',this.checked)">
-        <label for="pong">Breakout clock (animated game as clock screen)</label>
-      </div>
-      <div class="check-row">
-        <input type="checkbox" id="slbl" value="1" %SLBL% onchange="toggleSetting('slbl',this.checked)">
-        <label for="slbl">Smaller gauge labels</label>
-      </div>
-      <div style="font-size:11px;color:#8B949E;margin-top:4px">
-        Note: Without a physical button, display will show clock instead of turning off (no way to wake manually).
+        <div class="check-row" id="pong-row">
+          <input type="checkbox" id="pong" value="1" %PONG% onchange="toggleSetting('pong',this.checked)">
+          <label for="pong">Breakout clock (animated game as screensaver)</label>
+        </div>
+        <p style="font-size:11px;color:#8B949E;margin-top:4px">Without a physical button, clock is always shown instead of turning display off.</p>
       </div>
 
-      <!--
-      <div id="cydextra-section" style="display:%CYDEXVIS%">
-        <label for="cydextra" style="margin-top:12px">CYD Extra Area</label>
-        <select id="cydextra">
-          <option value="0" %CYDEX0%>AMS Filament</option>
-          <option value="1" %CYDEX1%>Extra Gauges (Chamber + Heatbreak Fan)</option>
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid #30363D">
+        <h3 style="color:#58A6FF;font-size:14px;margin-bottom:10px">Screen</h3>
+        <label for="rotation">Screen Rotation</label>
+        <select id="rotation">
+          <option value="0" %ROT0%>0&deg; (default)</option>
+          <option value="1" %ROT1%>90&deg;</option>
+          <option value="2" %ROT2%>180&deg;</option>
+          <option value="3" %ROT3%>270&deg;</option>
         </select>
+        <div class="check-row">
+          <input type="checkbox" id="abar" value="1" %ABAR% onchange="toggleSetting('abar',this.checked)">
+          <label for="abar">Animated progress bar (shimmer effect)</label>
+        </div>
+        <div class="check-row">
+          <input type="checkbox" id="slbl" value="1" %SLBL% onchange="toggleSetting('slbl',this.checked)">
+          <label for="slbl">Smaller gauge labels</label>
+        </div>
       </div>
-      -->
 
       <div style="margin-top:16px;padding-top:12px;border-top:1px solid #30363D">
         <h3 style="color:#58A6FF;font-size:14px;margin-bottom:10px">Clock Settings</h3>
@@ -858,9 +854,10 @@ function applyDisplay(){
   p.append('nbright',document.getElementById('nbright').value);
   p.append('ssbright',document.getElementById('ssbright').value);
   p.append('rotation',document.getElementById('rotation').value);
-  p.append('fmins',document.getElementById('fmins').value);
-  if(document.getElementById('keepon').checked) p.append('keepon','1');
-  if(document.getElementById('clock').checked) p.append('clock','1');
+  var ap=document.getElementById('afterprint').value;
+  if(ap==='keepon'){p.append('keepon','1');p.append('fmins','0');}
+  else if(ap==='custom'){p.append('fmins',document.getElementById('fmins').value);p.append('clock','1');}
+  else{p.append('fmins',ap);p.append('clock','1');}
   if(document.getElementById('dack').checked) p.append('dack','1');
   if(document.getElementById('abar').checked) p.append('abar','1');
   if(document.getElementById('pong').checked) p.append('pong','1');
@@ -1019,20 +1016,17 @@ function startOta(){
   xhr.send(fd);
 }
 
-// Pong clock checkbox depends on clock-after-print being enabled
-(function(){
-  var clk=document.getElementById('clock');
+// Pong depends on afterprint not being "keepon" (no clock when keeping finish screen on)
+function toggleAfterPrint(){
+  var v=document.getElementById('afterprint').value;
+  document.getElementById('customMinsWrap').style.display=(v==='custom')?'block':'none';
   var pong=document.getElementById('pong');
   var row=document.getElementById('pong-row');
-  var ssw=document.getElementById('ssbrightWrap');
-  function upd(){
-    pong.disabled=!clk.checked;
-    row.style.opacity=clk.checked?'1':'0.4';
-    if(ssw) ssw.style.display=clk.checked?'block':'none';
-  }
-  clk.addEventListener('change',function(){toggleSetting('clock',clk.checked);upd();});
-  upd();
-})();
+  var showClock=(v!=='keepon');
+  pong.disabled=!showClock;
+  row.style.opacity=showClock?'1':'0.4';
+}
+toggleAfterPrint();
 </script>
 </body>
 </html>
@@ -1145,19 +1139,25 @@ static void processTemplate(String& page) {
   page.replace("%ROT3%", dispSettings.rotation == 3 ? "selected" : "");
 
   // Display power
-  page.replace("%FMINS%", String(dpSettings.finishDisplayMins));
-  page.replace("%KEEPON%", dpSettings.keepDisplayOn ? "checked" : "");
-  page.replace("%CLOCKDISP%", dpSettings.showClockAfterFinish ? "block" : "none");
-  page.replace("%CLOCK%", dpSettings.showClockAfterFinish ? "checked" : "");
+  // After-print dropdown: determine which option is selected
+  {
+    uint16_t fm = dpSettings.finishDisplayMins;
+    bool keepon = dpSettings.keepDisplayOn;
+    bool isPreset = (!keepon && (fm == 0 || fm == 1 || fm == 3 || fm == 5 || fm == 10));
+    page.replace("%AP_CLOCK0%", (!keepon && fm == 0) ? "selected" : "");
+    page.replace("%AP_F1%",     (!keepon && fm == 1) ? "selected" : "");
+    page.replace("%AP_F3%",     (!keepon && fm == 3) ? "selected" : "");
+    page.replace("%AP_F5%",     (!keepon && fm == 5) ? "selected" : "");
+    page.replace("%AP_F10%",    (!keepon && fm == 10) ? "selected" : "");
+    page.replace("%AP_CUSTOM%", (!keepon && !isPreset && fm > 0) ? "selected" : "");
+    page.replace("%AP_KEEPON%", keepon ? "selected" : "");
+    page.replace("%CUSTOM_DISP%", (!keepon && !isPreset && fm > 0) ? "block" : "none");
+    page.replace("%FMINS%", String(fm));
+  }
   page.replace("%DACK%", dpSettings.doorAckEnabled ? "checked" : "");
   page.replace("%ABAR%", dispSettings.animatedBar ? "checked" : "");
   page.replace("%PONG%", dispSettings.pongClock ? "checked" : "");
   page.replace("%SLBL%", dispSettings.smallLabels ? "checked" : "");
-
-  // CYD extra area mode temporarily hidden until the alternate view is redesigned
-  page.replace("%CYDEXVIS%", "none");
-  page.replace("%CYDEX0%", dispSettings.cydExtraMode == 0 ? "selected" : "");
-  page.replace("%CYDEX1%", dispSettings.cydExtraMode == 1 ? "selected" : "");
 
   // Global colors
   char buf[8];
