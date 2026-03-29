@@ -198,25 +198,31 @@ void loop() {
         Serial.println("Door opened - print removal acknowledged, starting timeout");
       }
 
-      // Only turn off/clock after timeout if NO printer is still printing
-      // If door ack is enabled and door not yet opened, block the timeout
+      // Transition from finish screen to clock/off
+      // If door ack is enabled and door not yet opened, block the transition
       if (current == SCREEN_FINISHED && !dpSettings.keepDisplayOn &&
-          !waitingForDoor &&
-          dpSettings.finishDisplayMins > 0 && finishScreenStart > 0 &&
-          millis() - finishScreenStart > (unsigned long)dpSettings.finishDisplayMins * 60000UL) {
-        bool anyPrinting = false;
-        for (uint8_t i = 0; i < MAX_ACTIVE_PRINTERS; i++) {
-          if (isPrinterConfigured(i) && printers[i].state.connected && printers[i].state.printing) {
-            anyPrinting = true;
-            break;
+          !waitingForDoor && finishScreenStart > 0) {
+        // finishDisplayMins==0: go to clock immediately if enabled, otherwise stay on finish
+        // finishDisplayMins>0: wait for timeout before transitioning
+        bool timeoutReached = (dpSettings.finishDisplayMins > 0) &&
+            (millis() - finishScreenStart > (unsigned long)dpSettings.finishDisplayMins * 60000UL);
+        bool immediateClockTransition = (dpSettings.finishDisplayMins == 0) &&
+            (dpSettings.showClockAfterFinish || buttonType == BTN_DISABLED);
+
+        if (timeoutReached || immediateClockTransition) {
+          bool anyPrinting = false;
+          for (uint8_t i = 0; i < MAX_ACTIVE_PRINTERS; i++) {
+            if (isPrinterConfigured(i) && printers[i].state.connected && printers[i].state.printing) {
+              anyPrinting = true;
+              break;
+            }
           }
-        }
-        if (!anyPrinting) {
-          // Never go to SCREEN_OFF without a physical button — no way to wake up
-          if (dpSettings.showClockAfterFinish || buttonType == BTN_DISABLED) {
-            setScreenState(SCREEN_CLOCK);
-          } else {
-            setScreenState(SCREEN_OFF);
+          if (!anyPrinting) {
+            if (dpSettings.showClockAfterFinish || buttonType == BTN_DISABLED) {
+              setScreenState(SCREEN_CLOCK);
+            } else {
+              setScreenState(SCREEN_OFF);
+            }
           }
         }
       }
