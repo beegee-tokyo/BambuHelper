@@ -554,6 +554,18 @@ static const char PAGE_HTML[] PROGMEM = R"rawliteral(
 // --- HTML escape helper ---
 function esc(s){var d=document.createElement('div');d.appendChild(document.createTextNode(s));return d.innerHTML;}
 
+// --- Polling timers (started/stopped when sections open/close) ---
+var diagTimer=null,statsTimer=null;
+function startPolling(id){
+  stopPolling();
+  if(id==='diag'){refreshDiag();diagTimer=setInterval(refreshDiag,5000);}
+  if(id==='printer'||id==='diag'){statsTimer=setInterval(refreshLiveStats,3000);refreshLiveStats();}
+}
+function stopPolling(){
+  if(diagTimer){clearInterval(diagTimer);diagTimer=null;}
+  if(statsTimer){clearInterval(statsTimer);statsTimer=null;}
+}
+
 // --- Collapsible sections ---
 function toggleSection(id){
   var content=document.getElementById('sec-'+id);
@@ -564,11 +576,13 @@ function toggleSection(id){
   document.querySelectorAll('.section-content').forEach(function(el){el.classList.remove('open');});
   document.querySelectorAll('.arrow').forEach(function(el){el.classList.remove('open');});
   document.querySelectorAll('.section').forEach(function(el){el.classList.remove('open');});
+  stopPolling();
   if(!isOpen){
     content.classList.add('open');
     arrow.classList.add('open');
     sect.classList.add('open');
     localStorage.setItem('bambu_section',id);
+    startPolling(id);
   } else {
     localStorage.removeItem('bambu_section');
   }
@@ -828,11 +842,8 @@ function refreshDiag(){
     document.getElementById('diagInfo').innerHTML=h;
   }).catch(function(e){console.warn('refreshDiag:',e);});
 }
-refreshDiag();
-setInterval(refreshDiag,5000);
-
 // --- Live stats (shows currently selected tab's printer) ---
-setInterval(function(){
+function refreshLiveStats(){
   fetch('/status?slot='+currentSlot).then(r=>r.json()).then(d=>{
     var h='';
     if(d.display_off) h+='<div class="stat-row"><span>Display:</span><span class="stat-val" style="color:#F85149">Off</span></div>';
@@ -854,7 +865,7 @@ setInterval(function(){
     else{ps.className='status status-na';ps.textContent='Not configured';}
     if(d.display_off && d.connected){ps.textContent+=' (Display Off)';}
   }).catch(function(e){console.warn('liveStats:',e);});
-}, 3000);
+}
 
 // --- Settings export/import ---
 function exportSettings(){
