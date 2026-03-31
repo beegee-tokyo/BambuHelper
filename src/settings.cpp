@@ -14,7 +14,12 @@ DisplaySettings dispSettings;
 NetworkSettings netSettings;
 DisplayPowerSettings dpSettings;
 char cloudEmail[64] = {0};
+
+#if defined (DISPLAY_RAK14014)
+ButtonType buttonType = BTN_TOUCH;
+#else
 ButtonType buttonType = BTN_DISABLED;
+#endif
 uint8_t buttonPin = BUTTON_DEFAULT_PIN;
 BuzzerSettings buzzerSettings = { false, BUZZER_DEFAULT_PIN, 0, 0 };
 TasmotaSettings tasmotaSettings = { false, "", 0, 30, 255 };
@@ -89,7 +94,6 @@ uint16_t bambuColorToRgb565(const char* rrggbbaa) {
 
   return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
 }
-
 void rgb565ToHtml(uint16_t c, char* buf) {
   uint8_t r = ((c >> 11) & 0x1F) * 255 / 31;
   uint8_t g = ((c >> 5) & 0x3F) * 255 / 63;

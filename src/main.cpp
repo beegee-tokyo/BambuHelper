@@ -96,6 +96,12 @@ void setup() {
   Serial.begin(115200);
   Serial.printf("\n=== BambuHelper %s Starting ===\n", FW_VERSION);
 
+#if defined (DISPLAY_RAK14014)
+  // Power up the display
+  pinMode(WB_IO2, OUTPUT);
+  digitalWrite(WB_IO2, HIGH);
+#endif
+
   loadSettings();
   initDisplay();
   splashEnd = millis() + 2000;
@@ -192,7 +198,7 @@ void loop() {
         finishScreenStart = millis();
         finishActive = true;
         if (!s.finishBuzzerPlayed) {
-          buzzerPlay(BUZZ_PRINT_FINISHED);
+        buzzerPlay(BUZZ_PRINT_FINISHED);
           s.finishBuzzerPlayed = true;
         }
       }
@@ -219,21 +225,21 @@ void loop() {
             (dpSettings.showClockAfterFinish || buttonType == BTN_DISABLED);
 
         if (timeoutReached || immediateClockTransition) {
-          bool anyPrinting = false;
-          for (uint8_t i = 0; i < MAX_ACTIVE_PRINTERS; i++) {
-            if (isPrinterConfigured(i) && printers[i].state.connected && printers[i].state.printing) {
-              anyPrinting = true;
-              break;
-            }
-          }
-          if (!anyPrinting) {
-            if (dpSettings.showClockAfterFinish || buttonType == BTN_DISABLED) {
-              setScreenState(SCREEN_CLOCK);
-            } else {
-              setScreenState(SCREEN_OFF);
-            }
+        bool anyPrinting = false;
+        for (uint8_t i = 0; i < MAX_ACTIVE_PRINTERS; i++) {
+          if (isPrinterConfigured(i) && printers[i].state.connected && printers[i].state.printing) {
+            anyPrinting = true;
+            break;
           }
         }
+        if (!anyPrinting) {
+          if (dpSettings.showClockAfterFinish || buttonType == BTN_DISABLED) {
+            setScreenState(SCREEN_CLOCK);
+          } else {
+            setScreenState(SCREEN_OFF);
+          }
+        }
+      }
       }
     } else if (s.connected && !s.printing &&
                strcmp(s.gcodeState, "FINISH") != 0) {
@@ -268,7 +274,7 @@ void loop() {
       if (!idleClockActive) { idleClockStart = millis(); idleClockActive = true; }
       if (millis() - idleClockStart > (unsigned long)dpSettings.finishDisplayMins * 60000UL) {
         if (dpSettings.showClockAfterFinish || buttonType == BTN_DISABLED) {
-          setScreenState(SCREEN_CLOCK);
+        setScreenState(SCREEN_CLOCK);
         } else {
           setScreenState(SCREEN_OFF);
         }
