@@ -50,7 +50,7 @@ BOARDS = {
     },
     'rak3312': {
         'build_dir': '.pio/build/rak3312',
-        'bootloader_offset': 0x1000,    # Standard ESP32 starts at 0x1000
+        'bootloader_offset': 0x0,       # ESP32-S3 starts at 0x0
         'partitions_offset': 0x8000,
         'firmware_offset': 0x10000,
         'board_id': 'rak3312',
