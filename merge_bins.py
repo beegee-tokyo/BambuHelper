@@ -6,7 +6,6 @@ Usage:
     python merge_bins.py                    # auto-reads version, builds esp32s3
     python merge_bins.py --board cyd        # build CYD firmware
     python merge_bins.py --board esp32c3    # build ESP32-C3 firmware
-    python merge_bins.py --board rak3312    # build RAK3312 firmware
     python merge_bins.py v2.5               # override version
     python merge_bins.py --ota              # OTA binary only
     python merge_bins.py --full             # Full (WebFlasher) binary only
@@ -47,13 +46,6 @@ BOARDS = {
         'partitions_offset': 0x8000,
         'firmware_offset': 0x10000,
         'board_id': 'esp32c3',
-    },
-    'rak3312': {
-        'build_dir': '.pio/build/rak3312',
-        'bootloader_offset': 0x0,       # ESP32-S3 starts at 0x0
-        'partitions_offset': 0x8000,
-        'firmware_offset': 0x10000,
-        'board_id': 'rak3312',
     },
 }
 
@@ -101,12 +93,33 @@ def create_ota_binary(out_dir, out_path, board):
 
 
 def merge_binaries(out_dir, out_path, board):
-    """Merge bootloader + partitions + firmware into a single flashable binary."""
+    """Merge bootloader + partitions + boot_app0 + firmware into a single flashable binary."""
     cfg = BOARDS[board]
     build_dir = cfg['build_dir']
     bootloader = os.path.join(build_dir, 'bootloader.bin')
     partitions = os.path.join(build_dir, 'partitions.bin')
     firmware = os.path.join(build_dir, 'firmware.bin')
+
+    # boot_app0.bin initialises the OTA-data partition so the bootloader
+    # knows which app slot to run.  PlatformIO flashes it automatically
+    # during USB upload, but the merged Full binary must include it too.
+    boot_app0 = None
+    for candidate in [
+        os.path.join(build_dir, 'boot_app0.bin'),
+        os.path.expanduser(
+            '~/.platformio/packages/framework-arduinoespressif32/'
+            'tools/partitions/boot_app0.bin'),
+        os.path.join(
+            'C:/', '.platformio', 'packages',
+            'framework-arduinoespressif32',
+            'tools', 'partitions', 'boot_app0.bin'),
+    ]:
+        if os.path.exists(candidate):
+            boot_app0 = candidate
+            break
+    if boot_app0 is None:
+        print("Error: boot_app0.bin not found.")
+        return False
 
     for path in [bootloader, partitions, firmware]:
         if not os.path.exists(path):
@@ -117,6 +130,7 @@ def merge_binaries(out_dir, out_path, board):
 
     bl_offset = cfg['bootloader_offset']
     pt_offset = cfg['partitions_offset']
+    otadata_offset = 0xE000
     fw_offset = cfg['firmware_offset']
 
     with open(out_path, 'wb') as out:
@@ -136,8 +150,16 @@ def merge_binaries(out_dir, out_path, board):
             pt = f.read()
             out.write(pt)
 
-        # Pad to firmware offset
+        # Pad to OTA data offset and write boot_app0.bin
         current = pt_offset + len(pt)
+        out.write(b'\xFF' * (otadata_offset - current))
+
+        with open(boot_app0, 'rb') as f:
+            ota = f.read()
+            out.write(ota)
+
+        # Pad to firmware offset
+        current = otadata_offset + len(ota)
         out.write(b'\xFF' * (fw_offset - current))
 
         with open(firmware, 'rb') as f:

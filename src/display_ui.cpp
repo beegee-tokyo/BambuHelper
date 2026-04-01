@@ -28,7 +28,7 @@ static unsigned long lastDisplayUpdate = 0;
 static BambuState prevState;
 static bool prevWaitingForDoor = false;
 static unsigned long connectScreenStart = 0;
-#if defined(DISPLAY_CYD) || defined(DISPLAY_RAK14014)
+#if defined(DISPLAY_CYD)
 static bool extraGaugesInited = false;   // forward decl for triggerDisplayTransition
 #endif
 
@@ -101,7 +101,7 @@ void initDisplay() {
   Serial.flush();
   tft.init();  // TFT_eSPI configures SPI from build flags
   Serial.println("Display: tft.init() done");
-#if defined(DISPLAY_CYD) || defined(DISPLAY_RAK14014)
+#if defined(DISPLAY_CYD)
   // Clear entire GRAM at rotation 0 first (guarantees all 240x320 pixels
   // are addressed). Without this, rotations 1/3 leave 80px of uninitialized
   // VRAM visible as garbage noise on the extra screen edge.
@@ -139,7 +139,7 @@ void initDisplay() {
 }
 
 void applyDisplaySettings() {
-#if defined(DISPLAY_CYD) || defined(DISPLAY_RAK14014)
+#if defined(DISPLAY_CYD)
   // Pre-clear entire GRAM at rotation 0 to prevent garbage on edges
   tft.setRotation(0);
   tft.fillScreen(TFT_BLACK);
@@ -159,7 +159,7 @@ void triggerDisplayTransition() {
   // Clear previous state so everything redraws for the new printer
   memset(&prevState, 0, sizeof(prevState));
   smoothInited = false;  // snap gauges to new printer's values
-#if defined(DISPLAY_CYD) || defined(DISPLAY_RAK14014)
+#if defined(DISPLAY_CYD)
   extraGaugesInited = false;
 #endif
   resetGaugeTextCache();
@@ -296,6 +296,7 @@ static void drawWiFiConnected() {
 // ---------------------------------------------------------------------------
 //  Screen: OTA firmware update in progress
 // ---------------------------------------------------------------------------
+#ifdef ENABLE_OTA_AUTO
 #include "web_server.h"
 static void drawOtaUpdate() {
   tft.setTextDatum(MC_DATUM);
@@ -334,6 +335,7 @@ static void drawOtaUpdate() {
   tft.setTextColor(CLR_ORANGE, CLR_BG);
   tft.drawString("Do not power off", SCREEN_W / 2, SCREEN_H / 2 + 58);
 }
+#endif // ENABLE_OTA_AUTO
 
 // ---------------------------------------------------------------------------
 //  Screen: Connecting MQTT
@@ -452,7 +454,7 @@ static void drawIdle() {
   BambuState& s = p.state;
 
   // Effective screen dimensions — idle uses full screen (no AMS sidebar)
-#if defined(DISPLAY_CYD) || defined(DISPLAY_RAK14014)
+#if defined(DISPLAY_CYD)
   const int16_t scrW = (int16_t)tft.width();
   const int16_t scrH = (int16_t)tft.height();
 #else
@@ -525,6 +527,7 @@ static void drawIdle() {
   static uint32_t idleAltFlipMs       = 0;
   static bool     idlePrevAltShowPower = false;
   static bool     idlePrevTasmotaOnline = false;
+  static float    idlePrevWatts        = -2.0f;
 
   if (tasmotaSettings.enabled && tasmotaSettings.displayMode == 0) {
     if (millis() - idleAltFlipMs > 4000) {
@@ -536,6 +539,7 @@ static void drawIdle() {
     idleAltFlipMs    = 0;
   }
   bool idleTasmotaOnline = tasmotaIsActiveForSlot(rotState.displayIndex);
+  float idleCurWatts = tasmotaGetWatts();
 
   int16_t botCY = scrH - 9;
   bool bottomChanged = wifiChanged ||
@@ -543,9 +547,11 @@ static void drawIdle() {
                        (s.doorOpen != prevState.doorOpen) ||
                        (s.doorSensorPresent != prevState.doorSensorPresent) ||
                        (tasmotaSettings.enabled && (idleAltShowPower != idlePrevAltShowPower ||
-                                                    idleTasmotaOnline != idlePrevTasmotaOnline));
+                                                    idleTasmotaOnline != idlePrevTasmotaOnline ||
+                                                    idleCurWatts != idlePrevWatts));
   idlePrevAltShowPower   = idleAltShowPower;
   idlePrevTasmotaOnline  = idleTasmotaOnline;
+  idlePrevWatts          = idleCurWatts;
 
   if (bottomChanged) {
     tft.fillRect(0, scrH - 18, scrW, 18, CLR_BG);
@@ -598,7 +604,7 @@ static void drawIdle() {
 //  Portrait: horizontal strip between gauges and ETA (y=190-246)
 //  Landscape: vertical strip on right side (x=244-316)
 // ---------------------------------------------------------------------------
-#if defined(DISPLAY_CYD) || defined(DISPLAY_RAK14014)
+#if defined(DISPLAY_CYD)
 
 static bool cydLandscape() {
   return (dispSettings.rotation == 1 || dispSettings.rotation == 3);
@@ -706,7 +712,7 @@ static void drawAmsZone(const BambuState& s, bool force) {
       tft.setTextDatum(TC_DATUM);
       bool sm = dispSettings.smallLabels;
       tft.setTextFont(sm ? 1 : 2);
-    tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
+      tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
       tft.drawString(label, LY_LAND_AMS_X + LY_LAND_AMS_W / 2, gy + barH + 2);
     }
 
@@ -809,7 +815,7 @@ static void drawExtraGauges(const BambuState& s, bool landscape, bool force) {
   }
 }
 
-#endif // DISPLAY_CYD || defined(DISPLAY_RAK14014)
+#endif // DISPLAY_CYD
 
 // ---------------------------------------------------------------------------
 //  Helper: draw WiFi signal indicator in bottom-left corner
@@ -858,7 +864,7 @@ static void drawPrinting() {
   const int16_t row2Y = LY_ROW2;
 
   // Effective Y positions — landscape on CYD uses 240x240-style positions
-#if defined(DISPLAY_CYD) || defined(DISPLAY_RAK14014)
+#if defined(DISPLAY_CYD)
   const bool land = cydLandscape();
   const int16_t eff_etaY     = land ? LY_LAND_ETA_Y     : LY_ETA_Y;
   const int16_t eff_etaH     = land ? LY_LAND_ETA_H     : LY_ETA_H;
@@ -876,7 +882,7 @@ static void drawPrinting() {
 #endif
 
   // === CYD: clear unused zone on screen transitions ===
-#if defined(DISPLAY_CYD) || defined(DISPLAY_RAK14014)
+#if defined(DISPLAY_CYD)
   if (forceRedraw) {
     int16_t scrW = (int16_t)tft.width();
     int16_t scrH = (int16_t)tft.height();
@@ -967,7 +973,7 @@ static void drawPrinting() {
   }
 
   // === AMS / Extra Gauges zone (CYD: portrait + landscape) ===
-#if defined(DISPLAY_CYD) || defined(DISPLAY_RAK14014)
+#if defined(DISPLAY_CYD)
   {
     // Detect mode switch - clear the zone so old content doesn't persist
     bool modeChanged = (dispSettings.cydExtraMode != prevCydExtraMode);
@@ -1064,6 +1070,7 @@ static void drawPrinting() {
   static uint32_t altFlipMs       = 0;
   static bool     prevAltShowPower = false;
   static bool     prevTasmotaOnline = false;
+  static float    prevWatts        = -2.0f;
 
   if (tasmotaSettings.enabled && tasmotaSettings.displayMode == 0) {
     if (millis() - altFlipMs > 4000) {
@@ -1075,6 +1082,7 @@ static void drawPrinting() {
     altFlipMs    = 0;
   }
   bool tasmotaOnline = tasmotaIsActiveForSlot(rotState.displayIndex);
+  float curWatts = tasmotaGetWatts();
 
   bool showingWifi = !(s.ams.present && s.ams.activeTray < AMS_MAX_TRAYS && s.ams.trays[s.ams.activeTray].present)
                   && !(s.ams.vtPresent && s.ams.activeTray == 254);
@@ -1086,9 +1094,11 @@ static void drawPrinting() {
                        (s.totalLayers != prevState.totalLayers) ||
                        (s.ams.activeTray != prevState.ams.activeTray) ||
                        (showingWifi && s.wifiSignal != prevState.wifiSignal) ||
-                       (tasmotaSettings.enabled && (altShowPower != prevAltShowPower || tasmotaOnline != prevTasmotaOnline));
+                       (tasmotaSettings.enabled && (altShowPower != prevAltShowPower || tasmotaOnline != prevTasmotaOnline ||
+                                                    curWatts != prevWatts));
   prevAltShowPower  = altShowPower;
   prevTasmotaOnline = tasmotaOnline;
+  prevWatts         = curWatts;
 
   if (bottomChanged) {
     tft.fillRect(0, eff_botY, SCREEN_W, eff_botH, CLR_BG);
@@ -1101,8 +1111,8 @@ static void drawPrinting() {
       if (t.present) {
         tft.drawCircle(10, eff_botCY, 5, CLR_TEXT_DARK);
         tft.fillCircle(10, eff_botCY, 4, t.colorRgb565);
-    tft.setTextDatum(ML_DATUM);
-    tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
+        tft.setTextDatum(ML_DATUM);
+        tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
         tft.drawString(t.type, 19, eff_botCY);
       } else {
         drawWifiSignalIndicator(s, eff_botCY);
@@ -1128,10 +1138,10 @@ static void drawPrinting() {
       tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
       tft.drawString(wBuf, SCREEN_W / 2 - 2, eff_botCY);
     } else {
-    tft.setTextDatum(MC_DATUM);
-    tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
-    char layerBuf[20];
-    snprintf(layerBuf, sizeof(layerBuf), "L%d/%d", s.layerNum, s.totalLayers);
+      tft.setTextDatum(MC_DATUM);
+      tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
+      char layerBuf[20];
+      snprintf(layerBuf, sizeof(layerBuf), "L%d/%d", s.layerNum, s.totalLayers);
       tft.drawString(layerBuf, SCREEN_W / 2, eff_botCY);
     }
 
@@ -1144,8 +1154,8 @@ static void drawPrinting() {
       drawIcon16(tft, SCREEN_W - 18, eff_botCY - 8,
                  s.doorOpen ? icon_unlock : icon_lock, clr);
     } else {
-    tft.setTextDatum(MR_DATUM);
-    tft.setTextColor(speedLevelColor(s.speedLevel), CLR_BG);
+      tft.setTextDatum(MR_DATUM);
+      tft.setTextColor(speedLevelColor(s.speedLevel), CLR_BG);
       tft.drawString(speedLevelName(s.speedLevel), SCREEN_W - 4, eff_botCY);
     }
   }
@@ -1159,7 +1169,7 @@ static void drawFinished() {
   BambuState& s = p.state;
 
   // Effective screen dimensions — finished uses full screen (no AMS sidebar)
-#if defined(DISPLAY_CYD) || defined(DISPLAY_RAK14014)
+#if defined(DISPLAY_CYD)
   const bool land = cydLandscape();
   const int16_t scrW = (int16_t)tft.width();
   const int16_t eff_finBotY  = land ? LY_LAND_FIN_BOT_Y  : LY_FIN_BOT_Y;
@@ -1283,13 +1293,13 @@ static void drawFinished() {
     tft.fillRect(0, eff_finBotY, scrW, eff_finBotH, CLR_BG);
     tft.setTextFont(1);
     if (waitingForDoor) {
-    tft.setTextDatum(MC_DATUM);
+      tft.setTextDatum(MC_DATUM);
       tft.setTextColor(CLR_ORANGE, CLR_BG);
       tft.drawString("Open door to dismiss", cx, eff_finWifiY);
     } else {
       drawIcon16(tft, 4, eff_finWifiY - 8, icon_wifi, CLR_TEXT_DIM);
       tft.setTextDatum(ML_DATUM);
-    tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
+      tft.setTextColor(CLR_TEXT_DIM, CLR_BG);
       char wifiBuf[12];
       snprintf(wifiBuf, sizeof(wifiBuf), "%ddBm", s.wifiSignal);
       tft.drawString(wifiBuf, 22, eff_finWifiY);
@@ -1420,9 +1430,11 @@ void updateDisplay() {
       drawConnectingMQTT();
       break;
 
+#ifdef ENABLE_OTA_AUTO
     case SCREEN_OTA_UPDATE:
       drawOtaUpdate();
       break;
+#endif
 
     case SCREEN_IDLE:
       drawIdle();
