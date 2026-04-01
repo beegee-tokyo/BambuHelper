@@ -1398,7 +1398,7 @@ void updateDisplay() {
     tft.setTextSize(1);
     tft.fillScreen(currentScreen == SCREEN_OFF ? TFT_BLACK : dispSettings.bgColor);
     forceRedraw = true;
-    if (currentScreen == SCREEN_CONNECTING_MQTT) {
+    if (currentScreen == SCREEN_CONNECTING_WIFI || currentScreen == SCREEN_CONNECTING_MQTT) {
       connectScreenStart = millis();
     }
     if (currentScreen == SCREEN_CLOCK) {
@@ -1457,6 +1457,7 @@ void updateDisplay() {
       if (forceRedraw) {
         tft.fillScreen(TFT_BLACK);
         setBacklight(0);
+        triggerDisplayTransition();  // clear gauge cache so wake shows fresh data
       }
       break;
   }
