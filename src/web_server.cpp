@@ -1143,7 +1143,7 @@ function startOta(){
   if(!f){showToast('Select a .bin file first');return;}
   if(!f.name.endsWith('.bin')){showToast('File must be .bin');return;}
   if(f.size<32768){showToast('File too small');return;}
-  if(f.size>1310720){showToast('File too large (max 1.25MB)');return;}
+  if(f.size>1835008){showToast('File too large (max 1.75MB)');return;}
   if(!confirm('Upload firmware and restart?')) return;
   var prog=document.getElementById('otaProgress');
   var bar=document.getElementById('otaBar');
