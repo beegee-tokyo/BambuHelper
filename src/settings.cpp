@@ -334,6 +334,7 @@ void loadSettings() {
   buzzerSettings.pin = prefs.getUChar("buz_pin", BUZZER_DEFAULT_PIN);
   buzzerSettings.quietStartHour = prefs.getUChar("buz_qstart", 0);
   buzzerSettings.quietEndHour = prefs.getUChar("buz_qend", 0);
+  buzzerSettings.buttonClick = prefs.getBool("buz_click", false);
 
   // Cloud email (display only)
   strlcpy(cloudEmail, prefs.getString("cl_email", "").c_str(), sizeof(cloudEmail));
@@ -474,6 +475,7 @@ void saveBuzzerSettings() {
   prefs.putUChar("buz_pin", buzzerSettings.pin);
   prefs.putUChar("buz_qstart", buzzerSettings.quietStartHour);
   prefs.putUChar("buz_qend", buzzerSettings.quietEndHour);
+  prefs.putBool("buz_click", buzzerSettings.buttonClick);
   prefs.end();
 }
 

@@ -134,13 +134,10 @@ void loop() {
   handleWebServer();
 
   if (isWiFiConnected() && !isAPMode()) {
-    if (isAnyPrinterConfigured()) {
-      handleBambuMqtt();
-      handleRotation();
-    }
-
-    // Handle physical button press
+    // Handle physical button press (before MQTT so screen wakes instantly
+    // without waiting for a potentially blocking TLS reconnect)
     if (wasButtonPressed()) {
+      buzzerPlayClick();
       ScreenState cur = getScreenState();
       if (cur == SCREEN_OFF || cur == SCREEN_CLOCK) {
         // Wake from sleep + reset backoff for immediate reconnect
@@ -148,6 +145,7 @@ void loop() {
         finishActive = false;
         idleClockActive = false;
         resetMqttBackoff();
+        deferMqttReconnect();  // skip blocking reconnect this iteration so screen wakes instantly
         setScreenState(SCREEN_IDLE);  // state machine will correct on next loop
       } else if (getActiveConnCount() >= 2) {
         // Cycle to next configured printer
@@ -309,4 +307,11 @@ void loop() {
   buzzerTick();
   checkNightMode();
   updateDisplay();
+
+  // MQTT and rotation after display update - TLS reconnect can block for
+  // several seconds so we handle it last to keep UI responsive
+  if (isWiFiConnected() && !isAPMode() && isAnyPrinterConfigured()) {
+    handleBambuMqtt();
+    handleRotation();
+  }
 }
