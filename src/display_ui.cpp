@@ -1000,7 +1000,7 @@ static void drawPrinting() {
       localtime_r(&nowEpoch, &now);
       if (now.tm_year > (2020 - 1900)) ntpSynced = true;
 
-      if (ntpSynced) {
+      if (!dispSettings.showTimeRemaining && ntpSynced) {
         // Calculate ETA: current time + remaining minutes
         time_t etaEpoch = nowEpoch + (time_t)s.remainingMinutes * 60;
         struct tm etaTm;
@@ -1031,6 +1031,7 @@ static void drawPrinting() {
         tft.setTextColor(CLR_GREEN, CLR_BG);
         tft.drawString(etaBuf, SCREEN_W / 2, eff_etaTextY);
       } else {
+        // NTP not synced yet OR user requested remaining time - show remaining time only
         char remBuf[24];
         uint16_t h = s.remainingMinutes / 60;
         uint16_t m = s.remainingMinutes % 60;
