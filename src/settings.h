@@ -33,9 +33,10 @@ struct DisplaySettings {
   uint8_t  rotation;       // 0, 1, 2, 3 (x90 degrees)
   uint16_t bgColor;        // background color
   uint16_t trackColor;     // inactive arc track color
-  bool     animatedBar;    // shimmer effect on progress bar
-  bool     pongClock;      // Pong/Breakout animated clock
-  bool     smallLabels;    // use smaller gauge labels (Font 1 instead of Font 2)
+  bool     animatedBar;       // shimmer effect on progress bar
+  bool     pongClock;         // Pong/Breakout animated clock
+  bool     smallLabels;       // use smaller gauge labels (Font 1 instead of Font 2)
+  bool     showTimeRemaining; // always show time remaining instead of ETA
   bool     invertColors;   // invert display colors (fixes white-bg on some panels)
   uint8_t  cydExtraMode;   // CYD extra area: 0=AMS, 1=Extra Gauges
   uint16_t clockTimeColor; // clock digits color (RGB565)
