@@ -392,6 +392,10 @@ R"rawliteral(
           <label>Time color</label><input type="color" id="clk_time" value="%CLK_TIME%">
           <label>Date color</label><input type="color" id="clk_date" value="%CLK_DATE%">
         </div>
+        <div class="check-row">
+          <input type="checkbox" id="shtire" value="1" %SHTIRE% onchange="toggleSetting('shtire',this.checked)">
+          <label for="shtire">Always show time remaining</label>
+        </div>
       </div>
 
       <div style="margin-top:16px;padding-top:12px;border-top:1px solid #30363D">
@@ -1028,6 +1032,7 @@ function applyDisplay(){
   if(document.getElementById('abar').checked) p.append('abar','1');
   if(document.getElementById('pong').checked) p.append('pong','1');
   if(document.getElementById('slbl').checked) p.append('slbl','1');
+  if(document.getElementById('shtire').checked) p.append('shtire','1');
   p.append('tz',document.getElementById('tz').value);
   if(document.getElementById('use24h').checked) p.append('use24h','1');
   p.append('datefmt',document.getElementById('datefmt').value);
@@ -1461,9 +1466,10 @@ static bool resolvePlaceholder(const char* name, String& out) {
 
   // --- Display options ---
   if (strcmp(name, "DACK") == 0)  { out = dpSettings.doorAckEnabled ? "checked" : ""; return true; }
-  if (strcmp(name, "ABAR") == 0)  { out = dispSettings.animatedBar ? "checked" : ""; return true; }
-  if (strcmp(name, "PONG") == 0)  { out = dispSettings.pongClock ? "checked" : ""; return true; }
-  if (strcmp(name, "SLBL") == 0)  { out = dispSettings.smallLabels ? "checked" : ""; return true; }
+  if (strcmp(name, "ABAR") == 0)   { out = dispSettings.animatedBar ? "checked" : ""; return true; }
+  if (strcmp(name, "PONG") == 0)   { out = dispSettings.pongClock ? "checked" : ""; return true; }
+  if (strcmp(name, "SLBL") == 0)   { out = dispSettings.smallLabels ? "checked" : ""; return true; }
+  if (strcmp(name, "SHTIRE") == 0) { out = dispSettings.showTimeRemaining ? "checked" : ""; return true; }
   if (strcmp(name, "INVCOL_ROW") == 0) {
 #if defined(DISPLAY_CYD)
     out = "<div class=\"check-row\">"
@@ -1738,6 +1744,7 @@ static void readDisplayFromForm() {
   dispSettings.animatedBar = server.hasArg("abar");
   dispSettings.pongClock = server.hasArg("pong");
   dispSettings.smallLabels = server.hasArg("slbl");
+  dispSettings.showTimeRemaining = server.hasArg("shtire");
   if (server.hasArg("cydextra")) {
     uint8_t mode = server.arg("cydextra").toInt();
     if (mode <= 1) dispSettings.cydExtraMode = mode;
@@ -2037,6 +2044,7 @@ static void handleToggleSetting() {
   else if (key == "abar")    dispSettings.animatedBar = on;
   else if (key == "pong")    dispSettings.pongClock = on;
   else if (key == "slbl")    dispSettings.smallLabels = on;
+  else if (key == "shtire")  dispSettings.showTimeRemaining = on;
   else if (key == "invcol")  dispSettings.invertColors = on;
   else if (key == "nighten") dpSettings.nightModeEnabled = on;
   else if (key == "use24h")  netSettings.use24h = on;
@@ -2211,6 +2219,7 @@ static void handleSettingsExport() {
   disp["animatedBar"] = dispSettings.animatedBar;
   disp["pongClock"] = dispSettings.pongClock;
   disp["smallLabels"] = dispSettings.smallLabels;
+  disp["showTimeRemaining"] = dispSettings.showTimeRemaining;
 
   JsonObject gauges = disp["gauges"].to<JsonObject>();
   JsonObject gPrg = gauges["progress"].to<JsonObject>(); gaugeColorsToJson(gPrg, dispSettings.progress);
@@ -2362,8 +2371,9 @@ static void handleSettingsImportFinish() {
     if (disp["clockTimeColor"].is<const char*>()) dispSettings.clockTimeColor = htmlToRgb565(disp["clockTimeColor"]);
     if (disp["clockDateColor"].is<const char*>()) dispSettings.clockDateColor = htmlToRgb565(disp["clockDateColor"]);
     if (disp["animatedBar"].is<bool>())       dispSettings.animatedBar = disp["animatedBar"].as<bool>();
-    if (disp["pongClock"].is<bool>())         dispSettings.pongClock = disp["pongClock"].as<bool>();
-    if (disp["smallLabels"].is<bool>())      dispSettings.smallLabels = disp["smallLabels"].as<bool>();
+    if (disp["pongClock"].is<bool>())           dispSettings.pongClock = disp["pongClock"].as<bool>();
+    if (disp["smallLabels"].is<bool>())         dispSettings.smallLabels = disp["smallLabels"].as<bool>();
+    if (disp["showTimeRemaining"].is<bool>())   dispSettings.showTimeRemaining = disp["showTimeRemaining"].as<bool>();
 
     JsonObject gauges = disp["gauges"];
     if (gauges) {
