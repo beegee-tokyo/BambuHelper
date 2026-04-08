@@ -1025,9 +1025,9 @@ static void drawPrinting() {
                      etaTm.tm_mon + 1, etaTm.tm_mday, etaH, etaTm.tm_min, ampm);
         } else {
           if (netSettings.use24h)
-            snprintf(etaBuf, sizeof(etaBuf), "ETA: %02d:%02d - %d m", etaH, etaTm.tm_min, s.remainingMinutes);
+            snprintf(etaBuf, sizeof(etaBuf), "ETA: %02d:%02d -> %d m", etaH, etaTm.tm_min, s.remainingMinutes);
           else
-            snprintf(etaBuf, sizeof(etaBuf), "ETA: %d:%02d %s - %d m", etaH, etaTm.tm_min, ampm, s.remainingMinutes);
+            snprintf(etaBuf, sizeof(etaBuf), "ETA: %d:%02d %s -> %d m", etaH, etaTm.tm_min, ampm, s.remainingMinutes);
         }
         tft.setTextFont(4);
         tft.setTextColor(CLR_GREEN, CLR_BG);
