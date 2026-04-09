@@ -639,13 +639,16 @@ static void drawAmsTrayBar(int16_t x, int16_t y, int16_t w, int16_t h,
   if (tray.present) {
     if (isActive) {
       tft.fillRect(x, y, w, h, TFT_WHITE);
-      tft.fillRect(x - 1, y - 3, w + 2, 3, TFT_GREEN);
-      tft.fillRect(x - 1, y + h, w + 2, 3, TFT_RED);
       tft.fillRect(x + 2, y + 2, w - 4, h - 4, tray.colorRgb565);
-    } else {
-      tft.drawRect(x, y, w, h, CLR_TEXT_DARK);
-      tft.fillRect(x + 1, y + 1, w - 2, h - 2, tray.colorRgb565);
-    }
+	  // Draw AMS slot mark
+	  tft.fillTriangle(x, y, x + (w / 2), y + 8, x + w, y, CLR_BG);
+	  tft.fillTriangle(x + 2, y + 2, x + (w / 2), y + 6, x + w - 2, y + 2, TFT_RED);
+	}
+	else
+	{
+		tft.drawRect(x, y, w, h, CLR_TEXT_DARK);
+		tft.fillRect(x + 1, y + 1, w - 2, h - 2, tray.colorRgb565);
+	}
   } else {
     // Empty slot: outline + diagonal cross to distinguish from black filament
     tft.drawRect(x, y, w, h, CLR_TEXT_DARK);
@@ -1002,7 +1005,7 @@ static void drawPrinting() {
       localtime_r(&nowEpoch, &now);
       if (now.tm_year > (2020 - 1900)) ntpSynced = true;
 
-      if (ntpSynced) {
+      if (!dispSettings.showTimeRemaining && ntpSynced) {
         // Calculate ETA: current time + remaining minutes
         time_t etaEpoch = nowEpoch + (time_t)s.remainingMinutes * 60;
         struct tm etaTm;
@@ -1033,6 +1036,7 @@ static void drawPrinting() {
         tft.setTextColor(CLR_GREEN, CLR_BG);
         tft.drawString(etaBuf, SCREEN_W / 2, eff_etaTextY);
       } else {
+        // NTP not synced yet OR user requested remaining time - show remaining time only
         char remBuf[24];
         uint16_t h = s.remainingMinutes / 60;
         uint16_t m = s.remainingMinutes % 60;

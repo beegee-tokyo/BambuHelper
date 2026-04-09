@@ -36,6 +36,7 @@ struct DisplaySettings {
   bool     animatedBar;    // shimmer effect on progress bar
   bool     pongClock;      // Pong/Breakout animated clock
   bool     smallLabels;    // use smaller gauge labels (Font 1 instead of Font 2)
+  bool     showTimeRemaining; // always show time remaining instead of ETA
   bool     invertColors;   // invert display colors (fixes white-bg on some panels)
   uint8_t  cydExtraMode;   // CYD extra area: 0=AMS, 1=Extra Gauges
   uint16_t clockTimeColor; // clock digits color (RGB565)
