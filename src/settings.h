@@ -80,6 +80,7 @@ struct DisplayPowerSettings {
   bool keepDisplayOn;          // override: never turn off display
   bool showClockAfterFinish;   // show clock instead of turning display off
   bool doorAckEnabled;         // wait for door open after print finish before timeout
+  bool keepPrintScreen;        // show printing screen instead of finish screen after print
   // Night mode (scheduled dimming)
   bool nightModeEnabled;       // enable time-based dimming
   uint8_t nightStartHour;      // dim start hour (0-23)

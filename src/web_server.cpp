@@ -340,6 +340,11 @@ R"rawliteral(
           <input type="checkbox" id="dack" value="1" %DACK% onchange="toggleSetting('dack',this.checked)">
           <label for="dack">Wait for door open before timeout</label>
         </div>
+        <div class="check-row" style="margin-top:4px">
+          <input type="checkbox" id="kps" value="1" %KPS% onchange="toggleSetting('kps',this.checked)">
+          <label for="kps">Keep printing screen after print completes</label>
+        </div>
+        <p style="font-size:11px;color:#8B949E;margin-top:2px">Show last print stats instead of the finish screen. Drying screen still takes priority.</p>
         <label for="ssbright" style="margin-top:12px;font-size:12px">Screensaver brightness: <span id="ssbrightVal">%SSBRIGHT%</span></label>
         <input type="range" id="ssbright" min="0" max="255" step="5" value="%SSBRIGHT%"
                oninput="document.getElementById('ssbrightVal').textContent=this.value">
@@ -1469,6 +1474,7 @@ static bool resolvePlaceholder(const char* name, String& out) {
 
   // --- Display options ---
   if (strcmp(name, "DACK") == 0)  { out = dpSettings.doorAckEnabled ? "checked" : ""; return true; }
+  if (strcmp(name, "KPS") == 0)   { out = dpSettings.keepPrintScreen ? "checked" : ""; return true; }
   if (strcmp(name, "ABAR") == 0)   { out = dispSettings.animatedBar ? "checked" : ""; return true; }
   if (strcmp(name, "PONG") == 0)   { out = dispSettings.pongClock ? "checked" : ""; return true; }
   if (strcmp(name, "SLBL") == 0)   { out = dispSettings.smallLabels ? "checked" : ""; return true; }
@@ -1744,6 +1750,7 @@ static void readDisplayFromForm() {
   dpSettings.keepDisplayOn = server.hasArg("keepon");
   dpSettings.showClockAfterFinish = server.hasArg("clock");
   dpSettings.doorAckEnabled = server.hasArg("dack");
+  dpSettings.keepPrintScreen = server.hasArg("kps");
   dispSettings.animatedBar = server.hasArg("abar");
   dispSettings.pongClock = server.hasArg("pong");
   dispSettings.smallLabels = server.hasArg("slbl");
@@ -2044,6 +2051,7 @@ static void handleToggleSetting() {
   if      (key == "keepon")  dpSettings.keepDisplayOn = on;
   else if (key == "clock")   dpSettings.showClockAfterFinish = on;
   else if (key == "dack")    dpSettings.doorAckEnabled = on;
+  else if (key == "kps")     dpSettings.keepPrintScreen = on;
   else if (key == "abar")    dispSettings.animatedBar = on;
   else if (key == "pong")    dispSettings.pongClock = on;
   else if (key == "slbl")    dispSettings.smallLabels = on;
@@ -2059,6 +2067,17 @@ static void handleToggleSetting() {
   saveSettings();
   if (key == "invcol") applyDisplaySettings();
   if (key == "use24h") { resetClock(); resetPongClock(); triggerDisplayTransition(); }
+  if (key == "kps") {
+    BambuState& st = printers[rotState.displayIndex].state;
+    ScreenState cur = getScreenState();
+    if (on && !st.printing && !st.ams.anyDrying &&
+        (cur == SCREEN_IDLE || cur == SCREEN_FINISHED)) {
+      setScreenState(SCREEN_PRINTING);
+    } else if (!on && cur == SCREEN_PRINTING && !st.printing) {
+      setScreenState(strcmp(st.gcodeState, "FINISH") == 0
+                     ? SCREEN_FINISHED : SCREEN_IDLE);
+    }
+  }
   server.send(200, "text/plain", "OK");
 }
 
