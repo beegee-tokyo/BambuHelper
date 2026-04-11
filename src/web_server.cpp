@@ -586,7 +586,7 @@ R"rawliteral(
       <div class="check-row">
         <input type="hidden" name="has_showip" value="1">
         <input type="checkbox" id="showip" value="1" %SHOWIP%>
-        <label for="showip">Show IP on startup (3 s)</label>
+        <label for="showip">Show IP on startup (1.5 s)</label>
       </div>
 
       <button type="button" class="btn btn-primary" onclick="saveWifi()">Save WiFi &amp; Restart</button>

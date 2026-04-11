@@ -377,6 +377,7 @@ void setup() {
   loadSettings();
   initDisplay();
   splashEnd = millis() + 2000;
+  startWiFiDuringSplash();
   setBacklight(brightness);
 }
 
