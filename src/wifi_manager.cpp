@@ -63,23 +63,51 @@ static void startAP() {
   setScreenState(SCREEN_AP_MODE);
 }
 
+static void applyStaticNetworkConfig() {
+  if (netSettings.useDHCP || netSettings.staticIP[0] == '\0') return;
+
+  IPAddress ip, gw, sn, dns;
+  bool ipOk = ip.fromString(netSettings.staticIP);
+  bool gwOk = gw.fromString(netSettings.gateway);
+  bool snOk = sn.fromString(netSettings.subnet);
+
+  if (!ipOk || !gwOk || !snOk) {
+    Serial.printf("Static IP config invalid, falling back to DHCP (ip=%d gw=%d sn=%d)\n",
+                  (int)ipOk, (int)gwOk, (int)snOk);
+    return;
+  }
+
+  bool customDns = (netSettings.dns[0] != '\0');
+  if (customDns) {
+    if (!dns.fromString(netSettings.dns)) {
+      dns = gw;
+      Serial.printf("Static IP: invalid DNS '%s', falling back to gateway %s\n",
+                    netSettings.dns, netSettings.gateway);
+    }
+  } else {
+    dns = gw;
+  }
+
+  String dnsStr = dns.toString();
+  bool applied = WiFi.config(ip, gw, sn, dns);
+  if (applied) {
+    Serial.printf("Static IP: %s GW: %s SN: %s DNS: %s\n",
+                  netSettings.staticIP, netSettings.gateway,
+                  netSettings.subnet, dnsStr.c_str());
+  } else {
+    Serial.printf("Static IP: WiFi.config() failed for IP=%s GW=%s SN=%s DNS=%s\n",
+                  netSettings.staticIP, netSettings.gateway,
+                  netSettings.subnet, dnsStr.c_str());
+  }
+}
+
 void initWiFi() {
   // If we have stored credentials, try STA mode
   if (strlen(wifiSSID) > 0) {
     WiFi.mode(WIFI_STA);
 
     // Apply static IP if configured
-    if (!netSettings.useDHCP && netSettings.staticIP[0] != '\0') {
-      IPAddress ip, gw, sn, dns;
-      if (ip.fromString(netSettings.staticIP) &&
-          gw.fromString(netSettings.gateway) &&
-          sn.fromString(netSettings.subnet)) {
-        if (netSettings.dns[0] != '\0') dns.fromString(netSettings.dns);
-        else dns = gw;
-        WiFi.config(ip, gw, sn, dns);
-        Serial.printf("Static IP: %s GW: %s\n", netSettings.staticIP, netSettings.gateway);
-      }
-    }
+    applyStaticNetworkConfig();
 
     setScreenState(SCREEN_CONNECTING_WIFI);
 
