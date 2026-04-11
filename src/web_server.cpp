@@ -1242,17 +1242,24 @@ function checkForUpdates(){
     .then(function(d){
       var latest=d.tag_name;
       var current='%FW_VER%';
-      // Parse vMAJOR.MINOR[pre] — pre-release suffix (e.g. Beta1) is older than plain release
+      // Parse vMAJOR.MINOR[.PATCH][pre] - pre-release suffix (e.g. Beta1)
+      // is older than the corresponding plain release.
       function parseVer(v){
-        var m=v.replace(/^v/,'').match(/^(\d+)\.(\d+)(.*)/);
-        return m?{major:parseInt(m[1]),minor:parseInt(m[2]),pre:m[3]!==''}:null;
+        var m=v.replace(/^v/,'').match(/^(\d+)\.(\d+)(?:\.(\d+))?(.*)$/);
+        return m?{
+          major:parseInt(m[1]),
+          minor:parseInt(m[2]),
+          patch:m[3]?parseInt(m[3]):0,
+          pre:m[4]!==''}
+          :null;
       }
       function isNewer(a,b){ // is release 'a' newer than current 'b'?
         var av=parseVer(a),bv=parseVer(b);
         if(!av||!bv)return a!==b;
         if(av.major!==bv.major)return av.major>bv.major;
         if(av.minor!==bv.minor)return av.minor>bv.minor;
-        return !av.pre&&bv.pre; // v2.5 > v2.5Beta2
+        if(av.patch!==bv.patch)return av.patch>bv.patch;
+        return !av.pre&&bv.pre; // v2.5 > v2.5Beta2, v2.5.1 > v2.5.1Beta1
       }
       if(!isNewer(latest,current)){
         res.style.color='#3FB950';
@@ -1263,10 +1270,11 @@ function checkForUpdates(){
       // Expected filename: BambuHelper-<board>-<version>-ota.bin
       // e.g. BambuHelper-esp32s3-v2.5-ota.bin
       var board='%BOARD%';
+      var expectedPrefix='BambuHelper-'+board+'-';
       var otaBin=null;
       for(var i=0;i<d.assets.length;i++){
         var n=d.assets[i].name;
-        if(n.indexOf(board)!==-1&&n.indexOf('-ota.')!==-1&&n.endsWith('.bin')){otaBin=d.assets[i];break;}
+        if(n.startsWith(expectedPrefix)&&n.endsWith('-ota.bin')){otaBin=d.assets[i];break;}
       }
       res.style.color='#F0883E';res.textContent='Update available!';
       document.getElementById('updateVer').textContent=latest;
@@ -2330,6 +2338,23 @@ static String otaError       = "";
 static volatile bool otaAutoInProgress = false;
 static volatile int  otaAutoProgress   = 0;
 static String        otaAutoStatus     = "";
+
+static bool isExpectedOtaAssetUrl(const String& url) {
+  if (url.length() == 0) return false;
+  if (!url.startsWith("https://github.com/") &&
+      !url.startsWith("https://objects.githubusercontent.com/") &&
+      !url.startsWith("https://release-assets.githubusercontent.com/")) {
+    return false;
+  }
+
+  int q = url.indexOf('?');
+  String clean = q >= 0 ? url.substring(0, q) : url;
+  int slash = clean.lastIndexOf('/');
+  String file = slash >= 0 ? clean.substring(slash + 1) : clean;
+
+  String prefix = "BambuHelper-" BOARD_VARIANT "-";
+  return file.startsWith(prefix) && file.endsWith("-ota.bin");
+}
 #endif
 
 static void gaugeColorsFromJson(JsonObject obj, GaugeColors& gc) {
@@ -2565,9 +2590,7 @@ static void handleOtaAuto() {
   }
 
   String url = server.arg("url");
-  if (url.length() == 0 ||
-      (!url.startsWith("https://github.com/") &&
-       !url.startsWith("https://objects.githubusercontent.com/"))) {
+  if (!isExpectedOtaAssetUrl(url)) {
     server.send(400, "application/json", "{\"error\":\"Missing or invalid url\"}");
     return;
   }
