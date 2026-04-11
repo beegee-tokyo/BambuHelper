@@ -238,6 +238,7 @@ static void parseMqttPayload(byte* payload, unsigned int length,
   // Deferred activeTray sources (resolved after AMS unit loop)
   uint8_t pendingSnowAmsId = 255;   // raw AMS unit id from snow
   uint8_t pendingSnowTrayIdx = 0;
+  bool    hasSnowData = false;       // true when snow was parsed for active nozzle
 
   // H2D/H2C dual nozzle: parse extruder directly from raw payload
   // (bypasses ArduinoJson filter which strips it due to deep nesting)
@@ -274,6 +275,7 @@ static void parseMqttPayload(byte* payload, unsigned int length,
               if (id == s.activeNozzle) {
                 pendingSnowAmsId = amsIdx;
                 pendingSnowTrayIdx = trayIdx;
+                hasSnowData = true;
               }
             }
 
@@ -354,6 +356,12 @@ static void parseMqttPayload(byte* payload, unsigned int length,
             }
 
             s.ams.anyDrying = false;
+
+            // Reset external spool - re-populated if vt_tray present in this message
+            s.ams.vtPresent = false;
+            s.ams.vtType[0] = '\0';
+            s.ams.vtColorRgb565 = 0;
+
             uint8_t unitIdx = 0;  // sequential index for unit-level storage
             for (JsonObject unit : units) {
               if (!unit["id"].is<const char*>()) continue;
@@ -438,7 +446,12 @@ static void parseMqttPayload(byte* payload, unsigned int length,
                 MQTT_LOG("activeTray: snow ams=%d tray=%d unresolved - keeping cached=%d",
                          pendingSnowAmsId, pendingSnowTrayIdx, s.ams.activeTray);
               }
+            } else if (hasSnowData) {
+              // snow was present but amsIdx==255 means "no active tray"
+              s.ams.activeTray = 255;
+              MQTT_LOG("activeTray: snow reports no active tray");
             }
+            // else: no extruder/snow data in this message - keep cached activeTray
           } else if (hasExplicitTrayNow) {
             if (rawTrayNow == 254) {
               s.ams.activeTray = 254;  // external spool sentinel
