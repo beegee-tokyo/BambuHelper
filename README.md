@@ -97,15 +97,6 @@ Optional case seen on picture (for ST7789 (240x240) display): https://makerworld
 
 > **Note:** CYD, Waveshare 2 and WisBlock RAK3312" are all-in-one boards or modular concepts with the display already integrated. The wiring tables below mainly apply to the DIY ESP32-S3 and ESP32-C3 builds that use an external 240x240 ST7789 display.
 
-### WisBlock Modular System components
-
-| Component Wisblock | Specification |
-|---|---|
-| MCU | [RAK3312](https://store.rakwireless.com/products/wisblock-core-module-rak3312-lora-wifi-ble) ESP32-S3 |
-| Base Board | [RAK19007](https://store.rakwireless.com/products/rak19007-wisblock-base-board-2nd-gen) Base Board |
-| Display | [RAK14014](https://store.rakwireless.com/products/240x320-pixel-full-color-tft-display-with-touch-screen-rak14014) 320x240 2.4" TFT Touch Screen display |
-| Buzzer | [RAK18001](https://store.rakwireless.com/products/wisblock-buzzer-module-rak18001) Buzzer |
-
 ### Default Wiring
 
 | Display Pin ST7789 (240x240) | ESP32-S3 GPIO | ESP32-C3 GPIO |
@@ -158,6 +149,15 @@ You can change the buzzer GPIO later in the web interface under **Buzzer**. The 
 ### Assembly Video
 
 [![Assembly Video](https://img.youtube.com/vi/hsyamsU5UZE/maxresdefault.jpg)](https://youtu.be/hsyamsU5UZE)
+
+### WisBlock Modular System components
+
+| Component Wisblock | Specification |
+|---|---|
+| MCU | [RAK3312](https://store.rakwireless.com/products/wisblock-core-module-rak3312-lora-wifi-ble) ESP32-S3 |
+| Base Board | [RAK19007](https://store.rakwireless.com/products/rak19007-wisblock-base-board-2nd-gen) Base Board |
+| Display | [RAK14014](https://store.rakwireless.com/products/240x320-pixel-full-color-tft-display-with-touch-screen-rak14014) 320x240 2.4" TFT Touch Screen display |
+| Buzzer | [RAK18001](https://store.rakwireless.com/products/wisblock-buzzer-module-rak18001) Buzzer |
 
 ## Flashing
 
