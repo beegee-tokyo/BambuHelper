@@ -48,12 +48,12 @@ When using Bambu Cloud, BambuHelper connects through Bambu Lab's cloud MQTT serv
 
 ## Other Supported Boards
 
-| Preview <img width="400" height="1"> | Board | Notes |
+| Preview | Board | Notes |
 |--------------------------------------|-------|-------|
+| <img src="img/RAK3312-RAK14014.png" width="900"> | **WisBlock RAK3312 ESP32-S3 + RAK14014 Touch LCD** | `240x320` ST7789 version with ESP32-S3, built with WisBlock Modular System. No soldering required, all components are just plugged together. Use the `rak3312` firmware build. Supports **up to 2 printers**, like the main ESP32-S3 DIY version. See [WisBlock Modular System components](#wisblock-modular-system-components) for used modules. Matching enclosure on [MakerWorld](https://makerworld.com/en/models/2571194-wisblock-bambuhelper-landscape) and [Instructables](https://www.printables.com/model/1649739-wisblock-bambuhelper-landscape) |
 | ![CYD display](img/CYD.png) | **CYD / ESP32-2432S028** | `240x320` ILI9341 all-in-one board. Use the `cyd` firmware build. Due to RAM limits, this board supports **1 printer only**. When flashing from [ESP Web Flasher](https://espressif.github.io/esptool-js/), set **Baudrate: 115200** before clicking **Connect**. If the first attempt fails, click **Disconnect** and then **Connect** again without unplugging the USB cable. If colors look reversed (white background instead of dark), enable **Invert display colors (fix white background)** in the web UI under **Display**. |
 | ![Waveshare 2 inch](img/waveshare2inch.png) | **Waveshare ESP32-S3-Touch-LCD-2** | `240x320` ST7789 version with ESP32-S3, sold as a more plug-and-play option. Use the `ws_lcd_200` firmware build. Supports **up to 2 printers**, like the main ESP32-S3 DIY version. Product page: [waveshare.com/esp32-s3-touch-lcd-2.htm](https://www.waveshare.com/esp32-s3-touch-lcd-2.htm) |
 | ![ESP32-C3 board](img/ESP32c3Board.png) | **ESP32-C3 Super Mini** | DIY version, just like the main ESP32-S3 build, using the same `240x240` ST7789 display. Use the `esp32c3` firmware build. Due to RAM limits, this board supports **1 printer only**. |
-| ![WisBlock RAK3312 + RAK14014](img/interface-rak.png) | **WisBlock RAK3312 ESP32-S3 + RAK14014 Touch LCD** | `240x320` ST7789 version with ESP32-S3, built with WisBlock Modular System. No soldering required, all components are just plugged together. Use the `rak3312` firmware build. Supports **up to 2 printers**, like the main ESP32-S3 DIY version. [WisBlock Modular System components](#wisblock-modular-system-components)  |
 
 ## Features
 
