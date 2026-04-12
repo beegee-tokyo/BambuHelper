@@ -19,18 +19,10 @@
 /** Touch screen driver instance */
 FT6336U ft6336u;
 bool wait_for_touch = true;
-bool btnDebugLog = false;
-#define BTN_LOG(fmt, ...)                                   \
-	  do                                                      \
-	  {                                                       \
-		  if (btnDebugLog)                                    \
-			  Serial.printf("BTN: " fmt "\n", ##__VA_ARGS__); \
-	  } while (0)
 
 static void keyIntHandle(void)
 {
 	// Conditional debug print
-	BTN_LOG("BTN INT");
 	wait_for_touch = false;
 	detachInterrupt(digitalPinToInterrupt(WB_IO6));
 }
@@ -63,7 +55,6 @@ static void keyIntHandle(void)
 	  // if (buttonType == BTN_TOUCHSCREEN) { // RAK14014 touch screen enforced
 		  ft6336u.begin();
 		  attachInterrupt(digitalPinToInterrupt(WB_IO6), keyIntHandle, FALLING);
-		  BTN_LOG("BTN initialized");
 		  buttonType = BTN_TOUCHSCREEN;
 		  return;
 	  // }
@@ -106,7 +97,6 @@ bool wasButtonPressed() {
 		return false;
 	} else {
 		wait_for_touch = true;
-		BTN_LOG("BTN touch return");
 		attachInterrupt(digitalPinToInterrupt(WB_IO6), keyIntHandle, FALLING);
 		return true;
 	}

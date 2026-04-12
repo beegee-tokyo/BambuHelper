@@ -126,9 +126,11 @@
 // --- Simple clock (centered in 320px height or 240px height) ---
 #define LY_CLK_CLEAR_Y   70
 #define LY_CLK_CLEAR_H   200
+// For portrait mode (320px height)
 #define LY_CLK_TIME_Y    140
 #define LY_CLK_AMPM_Y    175
 #define LY_CLK_DATE_Y    205
+// For landscape mode (240px height)
 #define LY_CLK_TIME_Y_L    100
 #define LY_CLK_AMPM_Y_L    135
 #define LY_CLK_DATE_Y_L    155
