@@ -7,6 +7,7 @@ codex/
 *.o
 *.obj
 *.elf
+firmware/
 *.map
 tools/pushall_dump.json
 tools/ams_dump.json
