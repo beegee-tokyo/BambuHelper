@@ -556,12 +556,14 @@ static void drawIdleDrying(PrinterSlot& p) {
 
   // === AMS unit name (below header) ===
   {
-    uint8_t displayNum = (u.id >= 128) ? (u.id - 128 + 1) : (u.id + 1);
-    char unitName[20];
+    bool isHT = (u.id >= 128);
+    uint8_t displayNum = isHT ? (u.id - 128 + 1) : (u.id + 1);
+    const char* prefix = isHT ? "AMS HT" : "AMS";
+    char unitName[24];
     if (dryCount > 1)
-      snprintf(unitName, sizeof(unitName), "AMS %d  (%d/%d)", displayNum, dryDisplayIdx + 1, dryCount);
+      snprintf(unitName, sizeof(unitName), "%s %d  (%d/%d)", prefix, displayNum, dryDisplayIdx + 1, dryCount);
     else
-      snprintf(unitName, sizeof(unitName), "AMS %d", displayNum);
+      snprintf(unitName, sizeof(unitName), "%s %d", prefix, displayNum);
 
     tft.fillRect(0, 30, SCREEN_W, 20, CLR_BG);
     tft.setTextDatum(MC_DATUM);
@@ -577,7 +579,7 @@ static void drawIdleDrying(PrinterSlot& p) {
     tft.fillRect(0, 55, SCREEN_W, 75, CLR_BG);
 
     char tempBuf[14];
-    snprintf(tempBuf, sizeof(tempBuf), "%.1f", u.temp);
+    snprintf(tempBuf, sizeof(tempBuf), "%.0f", u.temp);
     tft.setTextDatum(MC_DATUM);
     tft.setTextFont(7);
     tft.setTextColor(CLR_ORANGE, CLR_BG);
@@ -586,7 +588,7 @@ static void drawIdleDrying(PrinterSlot& p) {
 
     tft.setTextFont(4);
     tft.setTextDatum(ML_DATUM);
-    tft.drawString("'C", cx - 10 + tempW / 2 + 2, 86);
+    tft.drawString("\xB0""C", cx - 10 + tempW / 2 + 2, 86);
   }
 
   // === Remaining time ===
@@ -625,7 +627,7 @@ static void drawIdleDrying(PrinterSlot& p) {
     tft.fillRect(0, 55, SCREEN_W, 65, CLR_BG);
 
     char tempBuf[14];
-    snprintf(tempBuf, sizeof(tempBuf), "%.1f", u.temp);
+    snprintf(tempBuf, sizeof(tempBuf), "%.0f", u.temp);
     tft.setTextDatum(MC_DATUM);
     tft.setTextFont(7);
     tft.setTextColor(CLR_ORANGE, CLR_BG);
@@ -634,7 +636,7 @@ static void drawIdleDrying(PrinterSlot& p) {
 
     tft.setTextFont(4);
     tft.setTextDatum(ML_DATUM);
-    tft.drawString("'C", cx - 10 + tempW / 2 + 2, 68);
+    tft.drawString("\xB0""C", cx - 10 + tempW / 2 + 2, 68);
   }
 
   // === Remaining time ===
