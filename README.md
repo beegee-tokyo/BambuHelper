@@ -1,9 +1,9 @@
-# BambuHelper
+# BambuHelper WisBlock
 
 ----
 
 _**This fork is for WisBlock RAK3312 ESP32-S3 with RAK14014 240x320 px TFT touch screen display.**_     
-_**It is updated frequentely with updates made on the original code provided by @keralots**_     
+_**It is updated frequently with updates made on the original code provided by @keralots**_     
 
 ----
 
