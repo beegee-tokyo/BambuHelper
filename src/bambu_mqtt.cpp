@@ -39,6 +39,13 @@ bool mqttDebugLog = false;
 
 static void mqttCallback(char* topic, byte* payload, unsigned int length);
 
+static bool isRecoveryPushallReason(PushallReason reason) {
+  return reason == PUSHALL_RECOVERY_PRINT ||
+         reason == PUSHALL_RECOVERY_CONN_DEAD ||
+         reason == PUSHALL_RECOVERY_FINISH ||
+         reason == PUSHALL_RECOVERY_IDLE;
+}
+
 // Conditional debug print
 #define MQTT_LOG(fmt, ...) do { if (mqttDebugLog) Serial.printf("MQTT: " fmt "\n", ##__VA_ARGS__); } while(0)
 
@@ -63,6 +70,21 @@ const MqttDiag& getMqttDiag(uint8_t slot) {
   if (slot >= MAX_ACTIVE_PRINTERS) slot = 0;
   conns[slot].diag.freeHeap = ESP.getFreeHeap();
   return conns[slot].diag;
+}
+
+const char* pushallReasonToString(uint8_t reason) {
+  switch ((PushallReason)reason) {
+    case PUSHALL_INITIAL:            return "Initial";
+    case PUSHALL_RETRY_NO_DATA:      return "Retry (No Data)";
+    case PUSHALL_PERIODIC:           return "Periodic";
+    case PUSHALL_RECOVERY_PRINT:     return "Recovery (Print)";
+    case PUSHALL_RECOVERY_CONN_DEAD: return "Recovery (Conn Dead)";
+    case PUSHALL_RECOVERY_FINISH:    return "Recovery (Finish)";
+    case PUSHALL_RECOVERY_IDLE:      return "Recovery (Idle)";
+    case PUSHALL_MANUAL:             return "Manual";
+    case PUSHALL_NONE:
+    default:                         return "Never";
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -134,7 +156,7 @@ static bool ensureClients(MqttConn& c) {
 // ---------------------------------------------------------------------------
 //  Request pushall for one connection
 // ---------------------------------------------------------------------------
-static void requestPushall(MqttConn& c) {
+static void requestPushall(MqttConn& c, PushallReason reason) {
   if (!c.mqtt) return;
 
   PrinterConfig& cfg = printers[c.slotIndex].config;
@@ -147,9 +169,13 @@ static void requestPushall(MqttConn& c) {
            "\"version\":1,\"push_target\":1}}",
            c.pushallSeqId++);
 
-  MQTT_LOG("[%d] pushall -> %s", c.slotIndex, topic);
+  MQTT_LOG("[%d] pushall (%s) -> %s", c.slotIndex, pushallReasonToString(reason), topic);
   c.mqtt->publish(topic, payload);
   c.lastPushallRequest = millis();
+  c.diag.pushallTotal++;
+  if (isRecoveryPushallReason(reason)) c.diag.pushallRecovery++;
+  c.diag.lastPushallMs = c.lastPushallRequest;
+  c.diag.lastPushallReason = (uint8_t)reason;
 }
 
 static void clearLiveMetrics(BambuState& s) {
@@ -892,7 +918,7 @@ static void handleConn(MqttConn& c) {
     if (!c.initialPushallSent && c.connectTime > 0 &&
         millis() - c.connectTime > BAMBU_PUSHALL_INITIAL_DELAY) {
       esp_task_wdt_reset();
-      requestPushall(c);
+      requestPushall(c, PUSHALL_INITIAL);
       c.initialPushallSent = true;
     }
 
@@ -904,13 +930,13 @@ static void handleConn(MqttConn& c) {
           millis() - c.lastPushallRequest > 10000) {
         MQTT_LOG("[%d] No data after pushall, retrying...", c.slotIndex);
         esp_task_wdt_reset();
-        requestPushall(c);
+        requestPushall(c, PUSHALL_RETRY_NO_DATA);
       }
 
       if (c.initialPushallSent && c.diag.messagesRx > 0 &&
           millis() - c.lastPushallRequest > BAMBU_PUSHALL_INTERVAL) {
         esp_task_wdt_reset();
-        requestPushall(c);
+        requestPushall(c, PUSHALL_PERIODIC);
       }
     }
   }
@@ -945,7 +971,7 @@ static void handleConn(MqttConn& c) {
       if (isConnected && c.stalePushallSentMs == 0 && !cloudPushallThrottled) {
         MQTT_LOG("[%d] core print data stale - sending recovery pushall", c.slotIndex);
         esp_task_wdt_reset();
-        requestPushall(c);
+        requestPushall(c, PUSHALL_RECOVERY_PRINT);
         c.stalePushallSentMs = millis();
       }
       // Don't give up - connection is alive, keep printing screen
@@ -954,7 +980,7 @@ static void handleConn(MqttConn& c) {
       if (isConnected && c.stalePushallSentMs == 0) {
         MQTT_LOG("[%d] connection dead during print - sending recovery pushall", c.slotIndex);
         esp_task_wdt_reset();
-        requestPushall(c);
+        requestPushall(c, PUSHALL_RECOVERY_CONN_DEAD);
         c.stalePushallSentMs = millis();
       } else if (c.stalePushallSentMs == 0 ||
                  millis() - c.stalePushallSentMs > 30000) {
@@ -981,7 +1007,7 @@ static void handleConn(MqttConn& c) {
       if (connAlive && isConnected && c.stalePushallSentMs == 0 && !cloudPushallThrottled) {
         MQTT_LOG("[%d] stale finish - sending recovery pushall", c.slotIndex);
         esp_task_wdt_reset();
-        requestPushall(c);
+        requestPushall(c, PUSHALL_RECOVERY_FINISH);
         c.stalePushallSentMs = millis();
       } else if (!connAlive &&
                  (c.stalePushallSentMs == 0 || millis() - c.stalePushallSentMs > 30000)) {
@@ -1002,7 +1028,7 @@ static void handleConn(MqttConn& c) {
       clearLiveMetrics(s);
       setPrinterGcodeStateCanonical(s, GCODE_UNKNOWN);
       esp_task_wdt_reset();
-      requestPushall(c);
+      requestPushall(c, PUSHALL_RECOVERY_IDLE);
       c.stalePushallSentMs = millis();
     } else {
       c.stalePushallSentMs = 0;
@@ -1150,7 +1176,7 @@ void requestCloudRefresh(uint8_t slot) {
   lastRefreshMs = millis();
   MQTT_LOG("[%d] manual cloud refresh (pushall)", c.slotIndex);
   esp_task_wdt_reset();
-  requestPushall(c);
+  requestPushall(c, PUSHALL_MANUAL);
 }
 
 void disconnectBambuMqtt() {

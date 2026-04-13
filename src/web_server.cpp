@@ -1153,6 +1153,12 @@ function toggleDebug(on){
 function refreshDiag(){
   fetch('/debug').then(r=>r.json()).then(d=>{
     var h='';
+    function ageText(sec, hasAny){
+      if(!hasAny) return 'Never';
+      if(sec < 60) return sec+'s ago';
+      if(sec < 3600) return Math.round(sec/60)+' min ago';
+      return Math.round(sec/3600)+' h ago';
+    }
     if(d.printers){
       d.printers.forEach(function(p){
         h+='<div style="margin-bottom:8px;padding:6px;border-left:2px solid '+(p.connected?'#3FB950':'#F85149')+'">';
@@ -1160,6 +1166,9 @@ function refreshDiag(){
         h+='<div class="stat-row"><span>MQTT:</span><span class="stat-val">'+(p.connected?'<span style="color:#3FB950">Connected</span>':'<span style="color:#F85149">Disconnected</span>')+'</span></div>';
         h+='<div class="stat-row"><span>Attempts:</span><span class="stat-val">'+p.attempts+'</span></div>';
         h+='<div class="stat-row"><span>Messages RX:</span><span class="stat-val">'+p.messages+'</span></div>';
+        h+='<div class="stat-row"><span>Pushall total:</span><span class="stat-val">'+(p.pushall_total||0)+'</span></div>';
+        h+='<div class="stat-row"><span>Pushall recovery:</span><span class="stat-val">'+(p.pushall_recovery||0)+'</span></div>';
+        h+='<div class="stat-row"><span>Last pushall:</span><span class="stat-val">'+esc(p.last_pushall_reason||'Never')+' ('+ageText(p.last_pushall_age_s,p.pushall_total>0)+')</span></div>';
         if(p.last_rc!==0) h+='<div class="stat-row"><span>Last error:</span><span class="stat-val" style="color:#F85149">'+esc(p.rc_text)+'</span></div>';
         h+='</div>';
       });
@@ -2099,6 +2108,7 @@ static void handleReset() {
 
 static void handleDebug() {
   JsonDocument doc;
+  unsigned long now = millis();
 
   JsonArray arr = doc["printers"].to<JsonArray>();
   for (uint8_t i = 0; i < MAX_ACTIVE_PRINTERS; i++) {
@@ -2114,6 +2124,10 @@ static void handleDebug() {
     p["last_rc"] = d.lastRc;
     p["rc_text"] = mqttRcToString(d.lastRc);
     p["tcp_ok"] = d.tcpOk;
+    p["pushall_total"] = d.pushallTotal;
+    p["pushall_recovery"] = d.pushallRecovery;
+    p["last_pushall_reason"] = pushallReasonToString(d.lastPushallReason);
+    p["last_pushall_age_s"] = d.lastPushallMs > 0 ? (now - d.lastPushallMs) / 1000UL : 0;
   }
 
   doc["heap"] = ESP.getFreeHeap();
