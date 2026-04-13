@@ -89,7 +89,7 @@ Optional a [WisBlock RAK18001 Buzzer](https://store.rakwireless.com/products/wis
 
 ### Assembly Instructions
 
-[Assembly Guide](./img/WisBlock BambuHelper assembly guide for landscape enclosure version.pdf)
+[Assembly Guide](./img/WisBlock_BambuHelper_assembly_guide_for_landscape_enclosure_version.pdf)
 
 ### WisBlock Modular System components
 
