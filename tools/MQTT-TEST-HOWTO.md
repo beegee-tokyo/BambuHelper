@@ -6,27 +6,35 @@ This is especially useful when a printer model exposes different field names tha
 
 ## What this script does
 
-`mqtt_test.py` connects directly to your Bambu printer over MQTT, requests a full `pushall` status payload, and saves the result to JSON files.
+`mqtt_test.py` connects to your Bambu printer over MQTT, requests a full `pushall` status payload, and saves the result to JSON files.
 
 The script can create:
 
 - `pushall_dump.json` - full printer status dump
 - `ams_dump.json` - AMS-only extract, if AMS data is present
 
-## Before you start
+The most useful file for me is usually:
 
-Please make sure:
+- `pushall_dump.json`
 
-- your printer is powered on
-- your computer and printer are on the same local network
-- LAN mode is enabled on the printer
-- if you have an H2S, H2C, or H2D, Developer Mode is also enabled
+## Read this first
 
-You will need these values from the printer:
+`mqtt_test.py` supports 2 connection modes:
 
-- printer IP address
-- LAN access code
-- serial number
+- `lan` - direct connection to the printer on your local network
+- `cloud` - connection through Bambu Cloud
+
+Use only one mode at a time.
+
+If I did not tell you which one to use:
+
+- use `lan` first if your printer supports it and you already use LAN mode
+- use `cloud` if LAN mode is unavailable, Developer Mode is disabled, or LAN testing does not work
+
+For H2S, H2C, and H2D:
+
+- `lan` mode requires both LAN mode and Developer Mode enabled on the printer
+- `cloud` mode does not require Developer Mode
 
 ## Step 1: Install Python
 
@@ -62,15 +70,19 @@ python3 --version
 
 If Python is missing, install Python 3 using your normal system package manager or from https://www.python.org/downloads/
 
-## Step 2: Get the script
+## Step 2: Get the files
 
-You need the file:
+You need:
 
 - `tools/mqtt_test.py`
 
-If you already downloaded the BambuHelper repository, just open the `tools` folder and use the existing file.
+Optional helper for cloud token login:
 
-If not, download `mqtt_test.py` from the repository and save it somewhere easy to find.
+- `tools/get_token.py`
+
+If you already downloaded the BambuHelper repository, just open the `tools` folder and use the existing files.
+
+If not, download the files from the repository and save them somewhere easy to find.
 
 ## Step 3: Open a terminal in the `tools` folder
 
@@ -78,7 +90,7 @@ Open Command Prompt, PowerShell, or Terminal in the same folder where `mqtt_test
 
 If you downloaded the full repository, go into the `tools` folder first.
 
-## Step 4: Install the required Python package
+## Step 4: Install the required Python package for `mqtt_test.py`
 
 Run one of these commands:
 
@@ -100,11 +112,37 @@ py -m pip install paho-mqtt
 python3 -m pip install paho-mqtt
 ```
 
-## Step 5: Edit the config in `mqtt_test.py`
+## Step 5: Choose one mode
 
-Open `mqtt_test.py` in any text editor and update the config block near the top of the file.
+Now decide which mode you want to test:
 
-For LAN testing, it should look like this:
+- `LAN mode`
+- `Cloud mode`
+
+Follow only one section below.
+
+## LAN mode
+
+Use this if your printer is reachable directly on your local network.
+
+### Before you run it
+
+Please make sure:
+
+- your printer is powered on
+- your computer and printer are on the same local network
+- LAN mode is enabled on the printer
+- if you have an H2S, H2C, or H2D, Developer Mode is also enabled
+
+You will need these values from the printer:
+
+- printer IP address
+- LAN access code
+- serial number
+
+### Edit the config for LAN mode
+
+Open `mqtt_test.py` in any text editor and update the config block near the top of the file so it looks like this:
 
 ```python
 MODE         = "lan"
@@ -112,16 +150,22 @@ MODE         = "lan"
 PRINTER_IP   = "YOUR_PRINTER_IP"
 ACCESS_CODE  = "YOUR_ACCESS_CODE"
 
+CLOUD_TOKEN  = "YOUR_CLOUD_TOKEN"
+CLOUD_REGION = "us"
+
 SERIAL       = "YOUR_SERIAL_NUMBER"
 ```
 
-Replace the placeholders with your real printer values.
+Replace these values:
+
+- `PRINTER_IP` with your printer IP address
+- `ACCESS_CODE` with your 8-character LAN access code
+- `SERIAL` with your printer serial number
 
 Important:
 
 - `SERIAL` must be uppercase
-- `ACCESS_CODE` is the 8-character LAN access code shown on the printer
-- for H2S, H2C, and H2D local MQTT testing, Developer Mode must be enabled
+- do not remove the `CLOUD_TOKEN` or `CLOUD_REGION` lines, just leave them unused in LAN mode
 
 Where to find the values:
 
@@ -129,9 +173,7 @@ Where to find the values:
 - Access code: printer Settings > LAN Only Mode
 - Serial number: printer Settings > Device > Serial Number
 
-## Step 6: Run the script
-
-Run one of these commands from the folder that contains `mqtt_test.py`.
+### Run the script in LAN mode
 
 ### Windows
 
@@ -153,7 +195,151 @@ python3 mqtt_test.py
 
 Let it run for about 30 seconds.
 
-## Step 7: Check the generated files
+## Cloud mode
+
+Use this if:
+
+- I specifically asked for cloud testing
+- LAN mode is not available on your printer
+- LAN mode is enabled but still does not return data
+- you do not want to enable Developer Mode on H2S, H2C, or H2D
+
+For cloud mode you need:
+
+- your printer serial number
+- a valid Bambu Cloud token
+- the correct cloud region
+
+Important:
+
+- for EU accounts, use `CLOUD_REGION = "us"`
+- use `CLOUD_REGION = "cn"` only for China-region accounts
+- `SERIAL` must be uppercase
+
+### Get your cloud token
+
+Choose one of the methods below.
+
+### Option A: Get the token from your browser
+
+This is usually the easiest method.
+
+1. Open https://bambulab.com and sign in to your Bambu account.
+2. Open your browser developer tools.
+3. Find the cookies for `bambulab.com`.
+4. Copy the value of the cookie named `token`.
+
+Quick browser hints:
+
+- Chrome / Edge: press `F12`, open `Application`, then `Cookies`, then `https://bambulab.com`
+- Firefox: press `F12`, open `Storage`, then `Cookies`, then `https://bambulab.com`
+- Safari: open Web Inspector, then `Storage`, then `Cookies`
+
+Copy the full token value exactly as it appears.
+
+### Option B: Use the helper script
+
+If you prefer, you can use `tools/get_token.py`.
+
+First install its required package:
+
+### Windows
+
+```bash
+python -m pip install curl_cffi
+```
+
+If needed:
+
+```bash
+py -m pip install curl_cffi
+```
+
+### macOS / Linux
+
+```bash
+python3 -m pip install curl_cffi
+```
+
+Then run:
+
+### Windows
+
+```bash
+python get_token.py
+```
+
+If needed:
+
+```bash
+py get_token.py
+```
+
+### macOS / Linux
+
+```bash
+python3 get_token.py
+```
+
+The script will ask for:
+
+- your Bambu account email
+- your password
+- your 2FA code, if your account uses 2FA
+
+At the end it will print your access token. Copy it exactly.
+
+### Edit the config for Cloud mode
+
+Open `mqtt_test.py` in any text editor and update the config block near the top of the file so it looks like this:
+
+```python
+MODE         = "cloud"
+
+PRINTER_IP   = "YOUR_PRINTER_IP"
+ACCESS_CODE  = "YOUR_ACCESS_CODE"
+
+CLOUD_TOKEN  = "YOUR_CLOUD_TOKEN"
+CLOUD_REGION = "us"
+
+SERIAL       = "YOUR_SERIAL_NUMBER"
+```
+
+Replace these values:
+
+- `CLOUD_TOKEN` with your real Bambu Cloud token
+- `CLOUD_REGION` with `us` or `cn`
+- `SERIAL` with your printer serial number
+
+Important:
+
+- for most users, including EU accounts, `CLOUD_REGION` should stay `us`
+- only use `cn` if your Bambu account is on the China server
+- do not remove the `PRINTER_IP` or `ACCESS_CODE` lines, just leave them unused in Cloud mode
+
+### Run the script in Cloud mode
+
+### Windows
+
+```bash
+python mqtt_test.py
+```
+
+If needed:
+
+```bash
+py mqtt_test.py
+```
+
+### macOS / Linux
+
+```bash
+python3 mqtt_test.py
+```
+
+Let it run for about 30 seconds.
+
+## Step 6: Check the generated files
 
 If the connection works and the printer sends data, the script should create:
 
@@ -162,7 +348,7 @@ If the connection works and the printer sends data, the script should create:
 
 These files are usually created in the same folder where you ran the script.
 
-## Step 8: Send the results to me
+## Step 7: Send the results to me
 
 Preferred option:
 
@@ -221,7 +407,23 @@ or:
 py -m pip install paho-mqtt
 ```
 
-### The script connects but receives no data
+### `ModuleNotFoundError: No module named 'curl_cffi'`
+
+This only matters if you are using `get_token.py`.
+
+Install the package first:
+
+```bash
+python -m pip install curl_cffi
+```
+
+or:
+
+```bash
+py -m pip install curl_cffi
+```
+
+### The script connects but receives no data in LAN mode
 
 Please double-check:
 
@@ -232,16 +434,33 @@ Please double-check:
 - LAN mode is enabled
 - on H2S, H2C, and H2D: Developer Mode is enabled
 
-### Authentication failed
+### Authentication failed in LAN mode
 
 The LAN access code is usually incorrect. Re-check it on the printer screen and run the script again.
+
+### Authentication failed in Cloud mode
+
+Usually this means:
+
+- the cloud token is expired
+- the token was copied incorrectly
+- the wrong `CLOUD_REGION` was used
+
+Try getting a fresh token and check the region again.
+
+### Cloud mode says the token is invalid or userId cannot be extracted
+
+Make sure you copied the full token exactly as provided by the browser or `get_token.py`.
+
+Do not copy only part of it.
 
 ## Quick summary
 
 1. Install Python 3.
 2. Install `paho-mqtt`.
-3. Edit the config in `mqtt_test.py`.
-4. Run the script for 30 seconds.
-5. Send me `pushall_dump.json`, or at minimum the AMS-related extract.
+3. Choose `lan` or `cloud`.
+4. Edit the config in `mqtt_test.py`.
+5. Run the script for 30 seconds.
+6. Send me `pushall_dump.json`, or at minimum the AMS-related extract.
 
 Thanks for helping me debug printer-specific MQTT data. It makes it much easier to fix support for new models and edge cases.
