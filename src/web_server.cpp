@@ -1167,7 +1167,8 @@ function refreshDiag(){
         h+='<div class="stat-row"><span>Attempts:</span><span class="stat-val">'+p.attempts+'</span></div>';
         h+='<div class="stat-row"><span>Messages RX:</span><span class="stat-val">'+p.messages+'</span></div>';
         h+='<div class="stat-row"><span>Pushall total:</span><span class="stat-val">'+(p.pushall_total||0)+'</span></div>';
-        h+='<div class="stat-row"><span>Pushall recovery:</span><span class="stat-val">'+(p.pushall_recovery||0)+'</span></div>';
+        var rc=p.rec_print||0, rd=p.rec_conn_dead||0, rf=p.rec_finish||0, ri=p.rec_idle||0;
+        h+='<div class="stat-row"><span>Pushall recovery:</span><span class="stat-val">'+(rc+rd+rf+ri)+' (P:'+rc+' D:'+rd+' F:'+rf+' I:'+ri+')</span></div>';
         h+='<div class="stat-row"><span>Last pushall:</span><span class="stat-val">'+esc(p.last_pushall_reason||'Never')+' ('+ageText(p.last_pushall_age_s,p.pushall_total>0)+')</span></div>';
         if(p.last_rc!==0) h+='<div class="stat-row"><span>Last error:</span><span class="stat-val" style="color:#F85149">'+esc(p.rc_text)+'</span></div>';
         h+='</div>';
@@ -1175,6 +1176,7 @@ function refreshDiag(){
     }
     h+='<div class="stat-row"><span>Free heap:</span><span class="stat-val">'+Math.round(d.heap/1024)+'KB</span></div>';
     h+='<div class="stat-row"><span>Uptime:</span><span class="stat-val">'+Math.round(d.uptime/60)+'min</span></div>';
+    h+='<div style="margin-top:8px;font-size:0.8em;color:#8B949E">Recovery: P=Print stale, D=Conn dead, F=Finish stale, I=Idle/Unknown</div>';
     document.getElementById('diagInfo').innerHTML=h;
   }).catch(function(e){console.warn('refreshDiag:',e);});
 }
@@ -2125,7 +2127,10 @@ static void handleDebug() {
     p["rc_text"] = mqttRcToString(d.lastRc);
     p["tcp_ok"] = d.tcpOk;
     p["pushall_total"] = d.pushallTotal;
-    p["pushall_recovery"] = d.pushallRecovery;
+    p["rec_print"] = d.recoveryPrint;
+    p["rec_conn_dead"] = d.recoveryConnDead;
+    p["rec_finish"] = d.recoveryFinish;
+    p["rec_idle"] = d.recoveryIdle;
     p["last_pushall_reason"] = pushallReasonToString(d.lastPushallReason);
     p["last_pushall_age_s"] = d.lastPushallMs > 0 ? (now - d.lastPushallMs) / 1000UL : 0;
   }

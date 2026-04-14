@@ -39,12 +39,6 @@ bool mqttDebugLog = false;
 
 static void mqttCallback(char* topic, byte* payload, unsigned int length);
 
-static bool isRecoveryPushallReason(PushallReason reason) {
-  return reason == PUSHALL_RECOVERY_PRINT ||
-         reason == PUSHALL_RECOVERY_CONN_DEAD ||
-         reason == PUSHALL_RECOVERY_FINISH ||
-         reason == PUSHALL_RECOVERY_IDLE;
-}
 
 // Conditional debug print
 #define MQTT_LOG(fmt, ...) do { if (mqttDebugLog) Serial.printf("MQTT: " fmt "\n", ##__VA_ARGS__); } while(0)
@@ -181,7 +175,13 @@ static bool requestPushall(MqttConn& c, PushallReason reason) {
   }
   c.lastPushallRequest = millis();
   c.diag.pushallTotal++;
-  if (isRecoveryPushallReason(reason)) c.diag.pushallRecovery++;
+  switch (reason) {
+    case PUSHALL_RECOVERY_PRINT:     c.diag.recoveryPrint++;    break;
+    case PUSHALL_RECOVERY_CONN_DEAD: c.diag.recoveryConnDead++; break;
+    case PUSHALL_RECOVERY_FINISH:    c.diag.recoveryFinish++;   break;
+    case PUSHALL_RECOVERY_IDLE:      c.diag.recoveryIdle++;     break;
+    default: break;
+  }
   c.diag.lastPushallMs = c.lastPushallRequest;
   c.diag.lastPushallReason = (uint8_t)reason;
   return true;
@@ -1073,8 +1073,24 @@ static void handleConn(MqttConn& c) {
       c.stalePushallSentMs = 0;
     }
 
-  // --- Any other state: connection freshness ---
-  } else {
+  // --- UNKNOWN on cloud: printer just came online ---
+  // After initial pushall gets no response (printer off), state stays UNKNOWN.
+  // When the printer powers on and starts sending partial updates, connAlive
+  // becomes true but we have no full status.  Send a bootstrap pushall.
+  // First attempt is exempt from cloudPushallThrottled (it's at most the 2nd
+  // pushall ever - no error 49 risk).  Retries respect the 2-min throttle.
+  } else if (isConnected && cloud && s.gcodeStateId == GCODE_UNKNOWN && connAlive) {
+    bool firstAttempt = (c.stalePushallSentMs == 0);
+    if (firstAttempt || !cloudPushallThrottled) {
+      MQTT_LOG("[%d] UNKNOWN + data flowing - sending %s pushall",
+               c.slotIndex, firstAttempt ? "bootstrap" : "retry");
+      esp_task_wdt_reset();
+      if (requestPushall(c, PUSHALL_RECOVERY_IDLE))
+        c.stalePushallSentMs = millis();
+    }
+
+  // --- Any other state ---
+  } else if (s.gcodeStateId != GCODE_UNKNOWN) {
     c.stalePushallSentMs = 0;
   }
 }

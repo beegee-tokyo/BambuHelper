@@ -11,7 +11,10 @@ struct MqttDiag {
   uint32_t messagesRx;      // total MQTT messages received
   uint32_t freeHeap;        // heap at last attempt
   uint32_t pushallTotal;    // all pushall requests sent since boot
-  uint32_t pushallRecovery; // recovery pushall requests sent since boot
+  uint16_t recoveryPrint;    // recovery: core print data stale
+  uint16_t recoveryConnDead; // recovery: connection dead during print
+  uint16_t recoveryFinish;   // recovery: stale FINISH state
+  uint16_t recoveryIdle;     // recovery: stale idle / UNKNOWN bootstrap
   bool     tcpOk;           // last TCP reachability result
   unsigned long lastAttemptMs; // millis() of last attempt
   unsigned long connectDurMs;  // how long last connect() took
