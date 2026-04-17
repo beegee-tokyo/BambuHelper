@@ -1,5 +1,6 @@
 #include "settings.h"
 #include "config.h"
+#include "buzzer.h"
 #include "timezones.h"
 #include <Preferences.h>
 
@@ -474,6 +475,7 @@ void saveButtonSettings() {
 }
 
 void saveBuzzerSettings() {
+  sanitizeBuzzerPin();
   prefs.begin(NVS_NAMESPACE, false);
   prefs.putBool("buz_on", buzzerSettings.enabled);
   prefs.putUChar("buz_pin", buzzerSettings.pin);

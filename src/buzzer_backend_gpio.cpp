@@ -1,18 +1,8 @@
 #include "buzzer_backend.h"
+#include "buzzer.h"
 #include "settings.h"
-#include "config.h"
 
 #if !defined(BOARD_HAS_ES8311_AUDIO)
-
-static void sanitizeBuzzerPin() {
-  if (buzzerSettings.pin == 0) return;
-#if defined(BACKLIGHT_PIN)
-  if (buzzerSettings.pin == BACKLIGHT_PIN) {
-    Serial.printf("Buzzer: pin %d conflicts with backlight, disabling\n", buzzerSettings.pin);
-    buzzerSettings.pin = 0;
-  }
-#endif
-}
 
 void buzzerBackendInit() {
   sanitizeBuzzerPin();
