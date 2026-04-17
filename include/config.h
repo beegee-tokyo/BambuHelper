@@ -113,6 +113,12 @@
 // =============================================================================
 //  Buzzer (optional passive buzzer)
 // =============================================================================
-#define BUZZER_DEFAULT_PIN    5       // default GPIO for buzzer
+#if defined(BOARD_IS_C3)
+#define BUZZER_DEFAULT_PIN    3       // C3: GPIO 3 (GPIO 5 is backlight)
+#elif defined(DISPLAY_CYD) || defined(DISPLAY_240x320)
+#define BUZZER_DEFAULT_PIN    26      // CYD: GPIO 26
+#else
+#define BUZZER_DEFAULT_PIN    5       // S3: GPIO 5
+#endif
 
 #endif // CONFIG_H
