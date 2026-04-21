@@ -39,6 +39,7 @@
 #define LY_AMS_LABEL_OFFY 4     // label offset below bars
 #define LY_AMS_MARGIN     8     // left/right margin
 #define LY_AMS_BAR_MAX_W  30    // max bar width (cap for 1 AMS)
+#define LY_AMS_BAR_MAX_W_EXTRAS 26  // cap for enhanced portrait mode (1 AMS, with filament type labels)
 
 // --- CYD landscape mode (rotation 1 or 3 = 320x240 actual) ---
 // Left 240px: gauge area (same grid positions as portrait/default 240x240)
