@@ -253,6 +253,7 @@ static void parseMqttPayload(byte* payload, unsigned int length, BambuState& s) 
   pf["bed_temper"] = true;
   pf["bed_target_temper"] = true;
   pf["chamber_temper"] = true;
+  pf["chamber_temper_2"] = true;              // 3rd party chamber temperature sensor (P1S)
   pf["ctc"]["info"]["temp"] = true;           // legacy/alternate chamber temp path
   pf["device"]["ctc"]["info"]["temp"] = true; // H2C/H2D chamber temp path
   pf["subtask_name"] = true;
@@ -265,6 +266,7 @@ static void parseMqttPayload(byte* payload, unsigned int length, BambuState& s) 
   pf["wifi_signal"] = true;
   pf["spd_lvl"] = true;
   pf["stat"] = true;  // H2 door sensor (hex string, bit 0x00800000 = door open)
+  pf["stat_2"] = true; // 3rd party door sensor (P1S hex string, bit 0x00800000 = door open)
   // Note: H2D/H2C extruder data is parsed separately from raw payload (see below)
 
   JsonDocument doc;
@@ -629,12 +631,23 @@ static void parseMqttPayload(byte* payload, unsigned int length, BambuState& s) 
     s.bedTarget = print["bed_target_temper"].as<int>();
   }
 
+#ifdef _INTERNAL_ADD_ON_
+  if (print["chamber_temper_2"].is<float>()) {
+    corePrintData = true;
+    s.chamberTemp = print["chamber_temper_2"].as<float>();
+	MQTT_LOG("chamber temp 2 %.1f", s.chamberTemp);
+  } else if (print["chamber_temper_2"].is<int>()) {
+    corePrintData = true;
+    s.chamberTemp = print["chamber_temper_2"].as<int>();
+	MQTT_LOG("chamber temp 2 %d", s.chamberTemp);
+#else
   if (print["chamber_temper"].is<float>()) {
     corePrintData = true;
     s.chamberTemp = print["chamber_temper"].as<float>();
   } else if (print["chamber_temper"].is<int>()) {
     corePrintData = true;
     s.chamberTemp = print["chamber_temper"].as<int>();
+#endif
   } else if (print["ctc"]["info"]["temp"].is<int>()) {
     // ctc.info.temp may be packed: (target << 16) | current — extract current
     corePrintData = true;
@@ -721,6 +734,21 @@ static void parseMqttPayload(byte* payload, unsigned int length, BambuState& s) 
 
   // Door sensor: stat is hex string, bit 0x00800000 = door open
   // H2C sends 9+ hex digits (>32 bit), must use strtoull
+  // If _INTERNAL_ADD_ON_ is defined an extra door sensor is installed (P1S)
+#ifdef _INTERNAL_ADD_ON_
+  if (print["stat_2"].is<const char*>()) {
+    uint64_t statVal = strtoull(print["stat_2"].as<const char*>(), nullptr, 16);
+    bool wasOpen = s.doorOpen;
+	MQTT_LOG("door sensor 2 detected (stat=0x%llX)", statVal);
+	s.doorOpen = (statVal & 0x00800000) != 0;
+    if (!s.doorSensorPresent) {
+      s.doorSensorPresent = true;
+      MQTT_LOG("door sensor 2 detected (stat=0x%llX, door=%s)", statVal, s.doorOpen ? "OPEN" : "CLOSED");
+    } else if (s.doorOpen != wasOpen) {
+      MQTT_LOG("door %s (stat=0x%llX)", s.doorOpen ? "OPENED" : "CLOSED", statVal);
+    }
+  }
+#endif
   if (print["stat"].is<const char*>()) {
     uint64_t statVal = strtoull(print["stat"].as<const char*>(), nullptr, 16);
     bool wasOpen = s.doorOpen;

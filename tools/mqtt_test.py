@@ -23,15 +23,15 @@ import paho.mqtt.client as mqtt
 MODE         = "lan"                   # "lan" or "cloud"
 
 # -- LAN mode settings --
-PRINTER_IP   = "YOUR_PRINTER_IP"       # e.g. "192.168.1.100"
-ACCESS_CODE  = "YOUR_ACCESS_CODE"      # 8 chars from printer LCD
+PRINTER_IP   = "192.168.0.15"       # e.g. "192.168.1.100"
+ACCESS_CODE  = "b8d3148d"      # 8 chars from printer LCD
 
 # -- Cloud mode settings --
 CLOUD_TOKEN  = "YOUR_CLOUD_TOKEN"      # JWT token from bambulab.com
 CLOUD_REGION = "us"                    # "us" (also for EU) or "cn"
 
 # -- Both modes --
-SERIAL       = "YOUR_SERIAL_NUMBER"    # e.g. "01P00C..." (MUST be UPPERCASE)
+SERIAL       = "01P00C540901634"    # e.g. "01P00C..." (MUST be UPPERCASE)
 # ============================================
 
 PORT          = 8883
@@ -69,7 +69,7 @@ if MODE == "cloud":
     print(f"  Cloud mode: broker={BROKER}, userId={CLOUD_USER_ID}")
 else:
     BROKER   = PRINTER_IP
-USERNAME      = "bblp"
+    USERNAME      = "bblp"
     PASSWORD = ACCESS_CODE
 
 TOPIC_REPORT  = f"device/{SERIAL}/report"
@@ -129,7 +129,7 @@ def check_tcp():
         if MODE == "cloud":
             print(f"  --> Check: internet connection? DNS resolution? firewall?")
         else:
-        print(f"  --> Check: printer powered on? same network? firewall?")
+            print(f"  --> Check: printer powered on? same network? firewall?")
 
 # ---- STEP 3: TLS handshake ----
 def check_tls():
@@ -137,8 +137,8 @@ def check_tls():
     print(f"  Testing TLS to {BROKER}:{PORT} ...")
     ctx = ssl.create_default_context()
     if MODE == "lan":
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
     # Cloud mode: use default CA verification
     try:
         raw = socket.create_connection((BROKER, PORT), timeout=10)
@@ -311,7 +311,7 @@ def check_mqtt():
         client.tls_set()
     else:
         # LAN: printer uses self-signed cert
-    client.tls_set(cert_reqs=ssl.CERT_NONE)
+        client.tls_set(cert_reqs=ssl.CERT_NONE)
     client.tls_insecure_set(True)
     client.on_connect = on_connect
     client.on_message = on_message
@@ -361,13 +361,13 @@ def print_summary():
             print(f"  -> Cloud token may be expired (valid ~3 months)")
             print(f"  -> Re-extract from bambulab.com browser session")
         else:
-        print(f"  -> Re-check Access Code on printer LCD (Settings > LAN Only Mode)")
+            print(f"  -> Re-check Access Code on printer LCD (Settings > LAN Only Mode)")
     elif not d["tcp_ok"]:
         print(f"\n  Printer not reachable on network.")
         if MODE == "cloud":
             print(f"  -> Check internet connection and DNS")
         else:
-        print(f"  -> Check IP, same subnet, printer powered on")
+            print(f"  -> Check IP, same subnet, printer powered on")
 
     print(f"\n  Full pushall saved to: pushall_dump.json")
     print(f"  Share this summary (redact serial/code if needed) for support.")

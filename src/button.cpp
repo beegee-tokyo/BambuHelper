@@ -88,12 +88,11 @@ static void keyIntHandle(void)
 		  return;
 	  }
 #elif defined(_VARIANT_RAK3112_)
-	  // if (buttonType == BTN_TOUCHSCREEN) { // RAK14014 touch screen enforced
-		  ft6336u.begin();
-		  attachInterrupt(digitalPinToInterrupt(WB_IO6), keyIntHandle, FALLING);
-		  buttonType = BTN_TOUCHSCREEN;
-		  return;
-	  // }
+	  // RAK14014 touch screen enforced
+	  ft6336u.begin();
+	  attachInterrupt(digitalPinToInterrupt(WB_IO6), keyIntHandle, FALLING);
+	  buttonType = BTN_TOUCHSCREEN;
+	  return;
 #endif
 	  if (buttonType == BTN_TOUCHSCREEN) return;
 	  if (buttonPin == 0) return;
