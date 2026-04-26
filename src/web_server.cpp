@@ -8,6 +8,7 @@
 #include "config.h"
 #include "button.h"
 #include "buzzer.h"
+#include "led.h"
 #include "timezones.h"
 #include "tasmota.h"
 #include "clock_mode.h"
@@ -556,6 +557,22 @@ R"rawliteral(
         </div>
       </div>
 
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid #30363D">
+        <label for="leden">External LED</label>
+        <select id="leden" onchange="toggleLed();ledPreviewSend()">
+          <option value="0" %LED_OFF%>Disabled</option>
+          <option value="1" %LED_ON%>Enabled</option>
+        </select>
+        <div id="ledFields" style="display:none">
+          <label for="ledpin">LED GPIO Pin</label>
+          <input type="number" id="ledpin" min="1" max="48" value="%LED_PIN%" onchange="ledPreviewSend()">
+          <p style="font-size:11px;color:#8B949E;margin-top:4px">PWM-dimmed LED via NPN transistor or MOSFET. CYD: GPIO 22 on P3 connector.</p>
+          <label for="ledbr" style="margin-top:8px">Brightness <span id="ledbrVal">%LED_BR%</span></label>
+          <input type="range" id="ledbr" min="0" max="255" step="5" value="%LED_BR%"
+                 oninput="document.getElementById('ledbrVal').textContent=this.value;ledPreviewSend()">
+        </div>
+      </div>
+
       <button type="button" class="btn btn-blue" onclick="saveRotation()">Save Hardware Settings</button>
     </div>
   </div>
@@ -1017,6 +1034,20 @@ function toggleBuzPin(){
 }
 toggleBuzPin();
 
+function toggleLed(){
+  document.getElementById('ledFields').style.display=
+    document.getElementById('leden').value!=='0'?'block':'none';
+}
+toggleLed();
+
+function ledPreviewSend(){
+  var p=new URLSearchParams();
+  p.append('en',document.getElementById('leden').value);
+  p.append('pin',document.getElementById('ledpin').value);
+  p.append('br',document.getElementById('ledbr').value);
+  fetch('/led/preview',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:p.toString()}).catch(function(){});
+}
+
 var buzTestSounds=[
   {id:0, name:'Print Finished'},
   {id:1, name:'Error'},
@@ -1044,6 +1075,9 @@ function saveRotation(){
   p.append('buzqs',document.getElementById('buzqs').value);
   p.append('buzqe',document.getElementById('buzqe').value);
   p.append('buzclick',document.getElementById('buzclick').checked?'1':'0');
+  p.append('leden',document.getElementById('leden').value);
+  p.append('ledpin',document.getElementById('ledpin').value);
+  p.append('ledbr',document.getElementById('ledbr').value);
   fetch('/save/rotation',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:p.toString()})
     .then(function(r){return r.json();})
     .then(function(d){if(d.status==='ok') showToast('Settings saved');})
@@ -1696,6 +1730,12 @@ static bool resolvePlaceholder(const char* name, String& out) {
   if (strcmp(name, "BUZ_QE") == 0)  { out = String(buzzerSettings.quietEndHour); return true; }
   if (strcmp(name, "BUZ_CLICK") == 0) { out = buzzerSettings.buttonClick ? "checked" : ""; return true; }
 
+  // --- External LED ---
+  if (strcmp(name, "LED_OFF") == 0) { out = ledSettings.enabled ? "" : "selected"; return true; }
+  if (strcmp(name, "LED_ON") == 0)  { out = ledSettings.enabled ? "selected" : ""; return true; }
+  if (strcmp(name, "LED_PIN") == 0) { out = String(ledSettings.pin); return true; }
+  if (strcmp(name, "LED_BR") == 0)  { out = String(ledSettings.brightness); return true; }
+
   // --- Tasmota ---
   if (strcmp(name, "TSM_EN") == 0)  { out = tasmotaSettings.enabled ? "checked" : ""; return true; }
   if (strcmp(name, "TSM_IP") == 0)  { out = tasmotaSettings.ip; return true; }
@@ -2266,6 +2306,31 @@ static void handleBuzzerTest() {
   server.send(200, "application/json", "{\"status\":\"ok\"}");
 }
 
+// Live LED preview from web UI. Validates pin range as int before casting to
+// uint8_t (avoids 300 -> 44 wraparound). On invalid pin we shut the preview
+// off so the user doesn't see a "ghost" LED still lit on the previous pin.
+static void handleLedPreview() {
+  bool en = server.hasArg("en") ? (server.arg("en") == "1") : ledSettings.enabled;
+
+  int rawPin = server.hasArg("pin") ? server.arg("pin").toInt() : ledSettings.pin;
+  if (rawPin < 1 || rawPin > 48) {
+    previewLed(false, 0, 0);
+    server.send(400, "application/json", "{\"error\":\"pin out of range\"}");
+    return;
+  }
+  uint8_t pin = (uint8_t)rawPin;
+
+  uint8_t br = ledSettings.brightness;
+  if (server.hasArg("br")) {
+    int v = server.arg("br").toInt();
+    if (v < 0) v = 0; if (v > 255) v = 255;
+    br = (uint8_t)v;
+  }
+
+  previewLed(en, pin, br);
+  server.send(200, "application/json", "{\"status\":\"ok\"}");
+}
+
 // Save rotation settings (multi-printer)
 static void handleSaveRotation() {
   if (server.hasArg("rotmode")) {
@@ -2314,6 +2379,22 @@ static void handleSaveRotation() {
   }
   saveBuzzerSettings();
   initBuzzer();
+
+  // External LED — must be parsed AFTER button + buzzer so sanitizeLedPin()
+  // sees the freshly-applied buttonPin and buzzerSettings.pin when checking
+  // for conflicts.
+  if (server.hasArg("leden"))  ledSettings.enabled = (server.arg("leden") == "1");
+  if (server.hasArg("ledpin")) {
+    int lp = server.arg("ledpin").toInt();
+    if (lp > 0 && lp <= 48) ledSettings.pin = (uint8_t)lp;
+  }
+  if (server.hasArg("ledbr")) {
+    int br = server.arg("ledbr").toInt();
+    if (br < 0) br = 0; if (br > 255) br = 255;
+    ledSettings.brightness = (uint8_t)br;
+  }
+  saveLedSettings();
+  initLed();
 
   server.send(200, "application/json", "{\"status\":\"ok\"}");
 }
@@ -2441,6 +2522,12 @@ static void handleSettingsExport() {
   buz["quietStart"] = buzzerSettings.quietStartHour;
   buz["quietEnd"] = buzzerSettings.quietEndHour;
   buz["buttonClick"] = buzzerSettings.buttonClick;
+
+  // External LED
+  JsonObject led = doc["led"].to<JsonObject>();
+  led["enabled"]    = ledSettings.enabled;
+  led["pin"]        = ledSettings.pin;
+  led["brightness"] = ledSettings.brightness;
 
   String json;
   serializeJsonPretty(doc, json);
@@ -2639,11 +2726,20 @@ static void handleSettingsImportFinish() {
     if (buz["buttonClick"].is<bool>()) buzzerSettings.buttonClick = buz["buttonClick"].as<bool>();
   }
 
+  // External LED
+  JsonObject led = doc["led"];
+  if (led) {
+    if (led["enabled"].is<bool>())       ledSettings.enabled = led["enabled"].as<bool>();
+    if (led["pin"].is<uint8_t>())        ledSettings.pin = led["pin"].as<uint8_t>();
+    if (led["brightness"].is<uint8_t>()) ledSettings.brightness = led["brightness"].as<uint8_t>();
+  }
+
   // Save everything to NVS
   saveSettings();
   saveRotationSettings();
   saveButtonSettings();
   saveBuzzerSettings();
+  saveLedSettings();   // sanitizes pin (incl. conflict with freshly-imported buzzer/button)
 
   server.send(200, "application/json", "{\"status\":\"ok\",\"message\":\"Settings imported. Restarting...\"}");
   scheduleRestart();
@@ -2869,6 +2965,7 @@ void initWebServer() {
   server.on("/save/rotation", HTTP_POST, handleSaveRotation);
   server.on("/save/power", HTTP_POST, handleSavePower);
   server.on("/buzzer/test", HTTP_POST, handleBuzzerTest);
+  server.on("/led/preview", HTTP_POST, handleLedPreview);
   server.on("/printer/config", HTTP_GET, handlePrinterConfig);
   server.on("/apply", HTTP_POST, handleApply);
   server.on("/brightness", HTTP_GET, handleBrightnessPreview);

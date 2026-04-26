@@ -8,6 +8,7 @@
 #include "bambu_state.h"
 #include "button.h"
 #include "buzzer.h"
+#include "led.h"
 #include "tasmota.h"
 #include <esp_sleep.h>
 #include <driver/gpio.h>
@@ -73,6 +74,7 @@ static bool handleSplashPhase() {
     initBambuMqtt();
     initButton();
     initBuzzer();
+    initLed();
     tasmotaInit();
   }
 

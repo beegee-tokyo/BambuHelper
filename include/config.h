@@ -123,4 +123,17 @@
 #define BUZZER_DEFAULT_PIN    5       // S3: GPIO 5
 #endif
 
+// =============================================================================
+//  External LED (optional, PWM dimmable via NPN/MOSFET)
+// =============================================================================
+#define LED_PWM_CH      2     // LEDC channel (timer 1, isolated from tone() ch0 and analogWrite backlight)
+#define LED_PWM_FREQ    5000  // PWM frequency (Hz)
+#define LED_PWM_RES     8     // PWM resolution (bits) -> 0..255 duty
+
+#if defined(DISPLAY_CYD)
+#define LED_DEFAULT_PIN 22    // CYD: GPIO 22 on P3 connector
+#else
+#define LED_DEFAULT_PIN 0     // other boards: user must configure
+#endif
+
 #endif // CONFIG_H
