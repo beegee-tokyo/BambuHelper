@@ -105,10 +105,26 @@ struct BuzzerSettings {
 };
 
 // External LED settings (optional, PWM dimmable)
+enum LedFinishMode : uint8_t {
+  LED_FINISH_OFF       = 0,
+  LED_FINISH_BREATHING = 1,
+  LED_FINISH_HEARTBEAT = 2,
+};
+
 struct LedSettings {
   bool    enabled;
   uint8_t pin;
-  uint8_t brightness;  // 0-255, persisted user level
+  uint8_t brightness;          // 0-255, persisted "working" level
+
+  // Print-finished one-shot effect
+  uint8_t  finishMode;         // LedFinishMode
+  uint16_t finishSeconds;      // 5..600
+  uint8_t  finishBrightness;   // 0..255 peak
+
+  // Continuous state-driven behaviors
+  bool autoOnWhilePrinting;    // LED on only while printer is printing
+  bool pauseBreathing;         // slow breath during GCODE_PAUSE
+  bool errorStrobe;            // fast strobe during GCODE_FAILED
 };
 
 // Tasmota smart plug power monitoring

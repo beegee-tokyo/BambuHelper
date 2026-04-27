@@ -19,7 +19,17 @@ char cloudEmail[64] = {0};
 ButtonType buttonType = BTN_DISABLED;
 uint8_t buttonPin = BUTTON_DEFAULT_PIN;
 BuzzerSettings buzzerSettings = { false, BUZZER_DEFAULT_PIN, 0, 0 };
-LedSettings ledSettings = { false, LED_DEFAULT_PIN, 128 };
+LedSettings ledSettings = {
+  /*enabled*/             false,
+  /*pin*/                 LED_DEFAULT_PIN,
+  /*brightness*/          128,
+  /*finishMode*/          LED_FINISH_OFF,
+  /*finishSeconds*/       60,
+  /*finishBrightness*/    255,
+  /*autoOnWhilePrinting*/ false,
+  /*pauseBreathing*/      false,
+  /*errorStrobe*/         false,
+};
 TasmotaSettings tasmotaSettings = { false, "", 0, 30, 255 };
 
 static Preferences prefs;
@@ -349,6 +359,14 @@ void loadSettings() {
   ledSettings.pin        = prefs.getUChar("led_pin", LED_DEFAULT_PIN);
   ledSettings.brightness = prefs.getUChar("led_br",  128);
 
+  ledSettings.finishMode       = prefs.getUChar ("led_fx_md",  LED_FINISH_OFF);
+  ledSettings.finishSeconds    = prefs.getUShort("led_fx_sec", 60);
+  ledSettings.finishBrightness = prefs.getUChar ("led_fx_br",  255);
+
+  ledSettings.autoOnWhilePrinting = prefs.getBool("led_auto_pr", false);
+  ledSettings.pauseBreathing      = prefs.getBool("led_pause",   false);
+  ledSettings.errorStrobe         = prefs.getBool("led_err",     false);
+
   // Cloud email (display only)
   strlcpy(cloudEmail, prefs.getString("cl_email", "").c_str(), sizeof(cloudEmail));
 
@@ -504,6 +522,14 @@ void saveLedSettings() {
   prefs.putBool ("led_on",  ledSettings.enabled);
   prefs.putUChar("led_pin", ledSettings.pin);
   prefs.putUChar("led_br",  ledSettings.brightness);
+
+  prefs.putUChar ("led_fx_md",  ledSettings.finishMode);
+  prefs.putUShort("led_fx_sec", ledSettings.finishSeconds);
+  prefs.putUChar ("led_fx_br",  ledSettings.finishBrightness);
+
+  prefs.putBool("led_auto_pr", ledSettings.autoOnWhilePrinting);
+  prefs.putBool("led_pause",   ledSettings.pauseBreathing);
+  prefs.putBool("led_err",     ledSettings.errorStrobe);
   prefs.end();
 }
 
